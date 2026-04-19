@@ -22,7 +22,7 @@ const Navbar = () => {
         <ul className='flex gap-8  tracking-[0.2em] font-bold '>
           <li className="hover:opacity-50 cursor-pointer transition-opacity">NOTRE HISTOIRE</li>
           <li className="hover:opacity-50 cursor-pointer transition-opacity">SHOP</li> 
-          <li className="hover:opacity-50 cursor-pointer transition-opacity">Galerie</li>
+          <li className="hover:opacity-50 cursor-pointer transition-opacity">GALERIE</li>
           <li className="hover:opacity-50 cursor-pointer transition-opacity">CONTACTEZ-NOUS</li>
         </ul> 
       </div>
@@ -61,6 +61,7 @@ const Navbar = () => {
             <ul className="flex flex-col gap-8 text-2xl font-title tracking-[0.2em]">
               <li onClick={toggleMenu} className="hover:text-white">NOTRE HISTOIRE</li>
               <li onClick={toggleMenu} className="hover:text-white">SHOP</li>
+              <li onClick={toggleMenu} className="hover:text-white">GALERIE</li>
               <li onClick={toggleMenu} className="hover:text-white">CONTACTEZ-NOUS</li>
             </ul>
 

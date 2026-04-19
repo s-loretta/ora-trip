@@ -55,7 +55,7 @@ export default function Preloader() {
             {/* Texte Tagline */}
             <h2 className="font-title text-[#c3c3c3] text-2xl  tracking-[0.5em] uppercase text-center
              px-6 leading-relaxed">
-              Chaque histoire merite <br/> d'être racontee
+              Chaque histoire merite <br/> d'etre racontee
             </h2>
 
             {/* Barre de progression épurée */}

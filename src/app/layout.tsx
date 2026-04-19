@@ -1,6 +1,7 @@
 import localFont from "next/font/local";
 import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 
 // Configuration de BBH Bogle
 const bbhBogle = localFont({
@@ -26,6 +27,7 @@ export default function RootLayout({
       <body className={`${bbhBogle.variable} ${ibmPlexMono.variable} antialiased`}>
         <Navbar />
         {children}
+        <Footer />
       </body>
     </html>
   );

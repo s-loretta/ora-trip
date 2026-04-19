@@ -14,7 +14,7 @@ const Navbar = () => {
       <img 
         src="/logonoir2.png" 
         alt="Logo" 
-        className="h-13 w-auto z-50" 
+        className="h-13 w-auto z-50 cursor-pointer" 
       />
 
       {/* Liens Desktop (cachés sur mobile) */}
@@ -22,6 +22,7 @@ const Navbar = () => {
         <ul className='flex gap-8  tracking-[0.2em] font-bold '>
           <li className="hover:opacity-50 cursor-pointer transition-opacity">NOTRE HISTOIRE</li>
           <li className="hover:opacity-50 cursor-pointer transition-opacity">SHOP</li> 
+          <li className="hover:opacity-50 cursor-pointer transition-opacity">Galerie</li>
           <li className="hover:opacity-50 cursor-pointer transition-opacity">CONTACTEZ-NOUS</li>
         </ul> 
       </div>

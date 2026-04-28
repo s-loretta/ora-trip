@@ -1,4 +1,5 @@
 import Preloader from "@/components/layout/Preloader";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -24,9 +25,9 @@ export default function Home() {
         
 
         {/* Ton bouton avec la police IBM Plex Mono */}
-        <button className="font-title text-2xl  md:text-6xl tracking-widest  text-black px-10 py-4  transition-all duration-300 rounded-full border-8 text-light-grey border-light-grey hover:bg-light-grey hover:text-dark mt-50 cursor-pointer">
+      <Link href="/shop">  <button className="font-title text-2xl  md:text-6xl tracking-widest  text-black px-10 py-4  transition-all duration-300 rounded-full border-8 text-light-grey border-light-grey hover:bg-light-grey hover:text-dark mt-50 cursor-pointer">
           SHOP NOW
-        </button>
+        </button></Link>
         
       </div>
 

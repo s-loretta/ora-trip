@@ -8,6 +8,7 @@ const Navbar = () => {
   const [isOpenCompte, setIsOpenCompte] = useState(false)
   const toggleMenu = () => setIsOpen(!isOpen);
   const toggleMenuCompte = () => setIsOpenCompte(!isOpenCompte);
+
   return (
     <nav className="z-50 flex items-center justify-between px-6 py-4 w-full text-light-grey fixed font-mono">
       
@@ -31,8 +32,23 @@ const Navbar = () => {
       {/* Actions (Panier, Compte, Burger) */}
       <div className='flex gap-5 items-center z-50'>
         <img src="/panier.png" alt="Panier" className="h-7 w-auto cursor-pointer" />
-        <img src="/compte.png" alt="Compte" className="h-7 w-auto cursor-pointer" onClick={toggleMenuCompte} />
-        
+       <Link href="/inscription" className="hidden md:block sm:opacity-100 disabled:opacity-50">
+  <img 
+    src="/compte.png" 
+    alt="Compte" 
+    className="h-7 w-auto cursor-pointer hover:opacity-80 transition-opacity" 
+  />
+</Link>
+
+{/* Icône Compte - Version MOBILE (Ouvre le menu latéral) */}
+{/* Visible par défaut sur mobile, mais se cache à partir des écrans moyens ('md:hidden') */}
+<img 
+  src="/compte.png" 
+  alt="Compte" 
+  className="h-7 w-auto cursor-pointer md:hidden" 
+  onClick={toggleMenuCompte} 
+/>
+
         {/* BOUTON BURGER : On ajoute le onClick ici */}
         <div onClick={toggleMenu} className="md:hidden cursor-pointer">
           <img 
@@ -47,10 +63,11 @@ const Navbar = () => {
         {isOpenCompte && (
           <motion.div 
             initial={{ x: '100%' }}
-            animate={{ x: 80}}
-            exit={{ x: '125%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 bg-[#131313] text-[#c3c3c3] flex flex-col p-10 z-[60] w-80 md:hidden "
+            // CORRECTION ICI : inset-0 remplacé par inset-y-0 right-0
+            className="fixed inset-y-0 right-0 bg-[#131313] text-[#c3c3c3] flex flex-col p-10 z-[60] w-80 md:hidden "
           >
             {/* Bouton Fermer à l'intérieur du menu */}
             <div className="flex justify-end mb-20" onClick={toggleMenuCompte}>
@@ -59,8 +76,8 @@ const Navbar = () => {
 
             {/* Liens du menu mobile */}
             <ul className="flex flex-col gap-8 text-2xl font-title tracking-[0.2em]">
-              <li onClick={toggleMenuCompte} className="hover:text-white">CONNECTEZ-VOUS</li>
-              <li onClick={toggleMenuCompte} className="hover:text-white">INSCRIVEZ-VOUS</li>
+            <Link href="/connexion"><li onClick={toggleMenuCompte} className="hover:text-white">CONNECTEZ-VOUS</li></Link> 
+            <Link href="inscription">  <li onClick={toggleMenuCompte} className="hover:text-white">INSCRIVEZ-VOUS</li> </Link>
             </ul>
 
             {/* Footer du menu mobile */}
@@ -76,10 +93,11 @@ const Navbar = () => {
         {isOpen && (
           <motion.div 
             initial={{ x: '100%' }}
-            animate={{ x: 80}}
-            exit={{ x: '125%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 bg-[#131313] text-[#c3c3c3] flex flex-col p-10 z-[60] w-80 "
+            // CORRECTION ICI : inset-0 remplacé par inset-y-0 right-0
+            className="fixed inset-y-0 right-0 bg-[#131313] text-[#c3c3c3] flex flex-col p-10 z-[60] w-80 "
           >
             {/* Bouton Fermer à l'intérieur du menu */}
             <div className="flex justify-end mb-20" onClick={toggleMenu}>

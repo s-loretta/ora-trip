@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, useTransform, MotionValue, useMotionValue, animate } from 'framer-motion';
 
-// --- TYPAGE DÉTAILLÉ ---
+
 interface Jersey {
   id: string;
   name: string;
@@ -24,19 +24,19 @@ const JERSEYS: Jersey[] = [
   },
   { 
     id: "02", 
-    name: "JAMAÏQUE", 
-    year: "2002", 
-    culture: "REGGAE BOYZ", // J'ai adapté la culture pour plus de cohérence
-    image: "/placeholder-maillot.png",
-    inspiration: "L'incarnation du rythme et de la ferveur. Conçu autour des couleurs emblématiques de l'île, ce maillot respire l'énergie de Kingston et la chaleur de son peuple. Un design audacieux pour ceux qui jouent avec l'âme."
+    name: "Undefined", 
+    year: "Undefined", 
+    culture: "Undefined", // J'ai adapté la culture pour plus de cohérence
+    image: "/placeholder-bloque.png",
+    inspiration: "Undefined"
   },
   { 
     id: "03", 
-    name: "ILE DE FRANCE", 
-    year: "2024", 
-    culture: "PARIS", 
-    image: "/placeholder-maillot.png",
-    inspiration: "L'effervescence de la métropole capturée dans chaque fibre. Inspiré par l'architecture urbaine, du béton brut aux néons des nuits parisiennes, ce design reflète la vitesse, l'élégance et l'avant-gardisme de la culture street francilienne."
+    name: "Undefined", 
+    year: "Undefined", 
+    culture: "Undefined", 
+    image: "/placeholder-bloque.png",
+    inspiration: "Undefined"
   },
 ];
 // --- LOGIQUE MATHÉMATIQUE DE LA BOUCLE ---

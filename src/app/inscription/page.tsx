@@ -181,7 +181,7 @@ const RegisterPage = () => {
                 className={`group relative inline-flex items-center gap-4 ${isSubmitting ? 'cursor-wait opacity-50' : 'cursor-pointer'}`}
               >
                 <span className="font-title text-2xl tracking-widest text-white group-hover:italic transition-all duration-300">
-                  {isSubmitting ? 'CRÉATION...' : 'CRÉER LE COMPTE'}
+                  {isSubmitting ? 'CRÉATION...' : 'CREER LE COMPTE'}
                 </span>
                 {!isSubmitting && <div className="w-12 h-px bg-white group-hover:w-24 transition-all duration-500 ease-out" />}
               </button>

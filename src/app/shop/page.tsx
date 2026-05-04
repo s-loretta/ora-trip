@@ -2,10 +2,13 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, useTransform, MotionValue, useMotionValue, animate } from 'framer-motion';
+import Link from 'next/link';
+import { useProductStore } from '@/store/useProductStore';
 
-
+// On garde ton interface, on ajoute juste le "realId" pour le lien Medusa
 interface Jersey {
-  id: string;
+  id: string;      // Ex: "01", "02" (Pour l'esthétique UI)
+  realId: string;  // L'ID unique Medusa (Pour naviguer)
   name: string;
   year: string;
   culture: string;
@@ -13,39 +16,10 @@ interface Jersey {
   inspiration: string;
 }
 
-const JERSEYS: Jersey[] = [
-  { 
-    id: "01", 
-    name: "GUADELOUPE 971", // ou 972 si tu gardes la Martinique
-    year: "1994", 
-    culture: "GUADELOUPE", 
-    image: "/placeholder-maillot.png",
-    inspiration: "Un hommage vibrant à l'âme des Antilles. Ses motifs géométriques rappellent le tissage traditionnel du madras, tandis que ses teintes éclatantes capturent l'énergie des vagues de la mer des Caraïbes sous le soleil de midi."
-  },
-  { 
-    id: "02", 
-    name: "Undefined", 
-    year: "Undefined", 
-    culture: "Undefined", // J'ai adapté la culture pour plus de cohérence
-    image: "/placeholder-bloque.png",
-    inspiration: "Undefined"
-  },
-  { 
-    id: "03", 
-    name: "Undefined", 
-    year: "Undefined", 
-    culture: "Undefined", 
-    image: "/placeholder-bloque.png",
-    inspiration: "Undefined"
-  },
-];
-// --- LOGIQUE MATHÉMATIQUE DE LA BOUCLE ---
-// Calcule la distance relative d'un item sur un cercle infini.
-// Retourne une valeur entre -1.5 et 1.5 (pour 3 items).
+// --- LOGIQUE MATHÉMATIQUE DE LA BOUCLE (INTOUCHÉE) ---
 const getRelativeDistance = (progress: number, index: number, total: number) => {
   const dist = progress - index;
   let relativeDist = ((dist % total) + total) % total;
-  // Si la distance dépasse la moitié, on le fait passer de l'autre côté pour l'effet de boucle
   if (relativeDist > total / 2) relativeDist -= total;
   return relativeDist;
 };
@@ -53,54 +27,77 @@ const getRelativeDistance = (progress: number, index: number, total: number) => 
 const ProductArchive = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // animateProgress est maintenant un index continu : -10, -9... 0, 1, 2... 15, 16.
+  // --- NOUVEAU : CONNEXION AU BACKEND ---
+  const { products, isLoading, fetchProducts } = useProductStore();
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  // --- MOTEUR DE SCROLL (INTOUCHÉ) ---
   const animateProgress = useMotionValue(0);
-  
-  // Références techniques pour le moteur de scroll
   const activeIndex = useRef(0);
   const isAnimating = useRef(false);
-  
-  // État UI pour l'affichage du numéro (01, 02, 03)
   const [displayIndex, setDisplayIndex] = useState(1);
-  const total = JERSEYS.length;
+  
+  // On crée notre tableau dynamiquement à partir des données Medusa
+  const dynamicJerseys: Jersey[] = products.map((product, index) => ({
+    id: String(index + 1).padStart(2, '0'),
+    realId: product.id,
+    name: product.title,
+    year: product.year,
+    culture: product.origin,
+    image: product.imagePath,
+    inspiration: product.history
+  }));
 
-  // Initialisation du tapis roulant (On place le scroll natif très loin du bord)
+  const total = dynamicJerseys.length;
+
   useEffect(() => {
     if (containerRef.current) {
       containerRef.current.scrollTop = window.innerHeight * 5;
     }
-  }, []);
+  }, [total]); // On réinitialise si le total change
+
+  // --- ÉCRAN DE CHARGEMENT MINIMALISTE ---
+  // Indispensable car la logique mathématique crashe si total === 0
+  if (isLoading || total === 0) {
+    return (
+      <div className="bg-[#131313] h-screen w-full flex items-center justify-center">
+        <span className="font-mono text-xs text-[#C3C3C3] uppercase tracking-[0.4em] animate-pulse">
+          Accès aux archives...
+        </span>
+      </div>
+    );
+  }
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     const windowHeight = window.innerHeight;
-    const centerScroll = windowHeight * 5; // Le point zéro de notre tapis roulant
+    const centerScroll = windowHeight * 5; 
     
-    // Verrouillage pendant l'animation pour éviter les sauts
     if (isAnimating.current) {
       target.scrollTop = centerScroll;
       return;
     }
 
     const scrollPosition = target.scrollTop;
-    const threshold = windowHeight * 0.15; // Il faut scroller 15% de l'écran pour déclencher
+    const threshold = windowHeight * 0.15; 
 
-    // --- PROPULSION VERS LE BAS (NEXT) ---
     if (scrollPosition > centerScroll + threshold) {
         isAnimating.current = true;
         activeIndex.current += 1;
         
         animate(animateProgress, activeIndex.current, {
             duration: 1.2,
-            ease: [0.16, 1, 0.3, 1], // Transition Premium Élastique
+            ease: [0.16, 1, 0.3, 1], 
             onComplete: () => {
                 isAnimating.current = false;
                 setDisplayIndex(((activeIndex.current % total) + total) % total + 1);
             }
         });
-        target.scrollTop = centerScroll; // On replace le scroll natif au milieu
+        target.scrollTop = centerScroll; 
     } 
-    // --- PROPULSION VERS LE HAUT (PREV) ---
     else if (scrollPosition < centerScroll - threshold) {
         isAnimating.current = true;
         activeIndex.current -= 1;
@@ -113,7 +110,7 @@ const ProductArchive = () => {
                 setDisplayIndex(((activeIndex.current % total) + total) % total + 1);
             }
         });
-        target.scrollTop = centerScroll; // On replace le scroll natif au milieu
+        target.scrollTop = centerScroll; 
     }
   };
 
@@ -123,32 +120,26 @@ const ProductArchive = () => {
         onScroll={handleScroll}
         className="bg-[#131313] relative h-screen overflow-y-scroll selection:bg-white selection:text-[#131313] no-scrollbar"
     >
-      {/* LE TAPIS ROULANT : Un espace fantôme immense (10 écrans) */}
       <div className="h-[1000vh] w-px absolute top-0 pointer-events-none opacity-0" />
 
-      {/* LA VUE COLLANTE : L'objectif de la caméra */}
       <div className="sticky top-0 h-screen w-full flex flex-col items-center justify-center overflow-hidden z-10">
         
-        {/* TEXTE D'ARRIÈRE PLAN */}
         <div className="absolute inset-0 flex items-center justify-center -z-10">
-           {JERSEYS.map((jersey, index) => (
+           {dynamicJerseys.map((jersey, index) => (
              <BackgroundText key={`bg-${jersey.id}`} jersey={jersey} index={index} total={total} progress={animateProgress} />
            ))}
         </div>
 
-        {/* IMAGES DES MAILLOTS */}
         <div className="relative w-full h-full max-w-xl flex items-center justify-center z-10">
-           {JERSEYS.map((jersey, index) => (
+           {dynamicJerseys.map((jersey, index) => (
              <JerseyImage key={`img-${jersey.id}`} jersey={jersey} index={index} total={total} progress={animateProgress} />
            ))}
         </div>
 
-        {/* INTERFACE (TEXTES ET BOUTONS) */}
-        {JERSEYS.map((jersey, index) => (
+        {dynamicJerseys.map((jersey, index) => (
           <JerseyUI key={`ui-${jersey.id}`} jersey={jersey} index={index} total={total} progress={animateProgress} />
         ))}
 
-        {/* INDICATEUR DE NUMÉRO (Dynamique) */}
         <div className="absolute left-6 md:left-10 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-30 pointer-events-none">
           <span className="font-mono text-[9px] text-[#C3C3C3]/20 rotate-90 mb-6">ARCHIVE</span>
           <span className="font-mono text-sm text-white transition-all duration-300">
@@ -168,7 +159,7 @@ const ProductArchive = () => {
   );
 };
 
-// --- SOUS-COMPOSANTS : MATHÉMATIQUES RELATIVES (CORRIGÉS ET STABLES) ---
+// --- SOUS-COMPOSANTS (INTOUCHÉS VISUELLEMENT) ---
 
 const BackgroundText = ({ jersey, index, total, progress }: { jersey: Jersey, index: number, total: number, progress: MotionValue<number> }) => {
   const y = useTransform(progress, p => `${getRelativeDistance(p, index, total) * -20}vh`);
@@ -243,11 +234,15 @@ const JerseyUI = ({ jersey, index, total, progress }: { jersey: Jersey, index: n
           </div>
         </div>
 
-        <button className="group relative overflow-hidden bg-white text-[#131313] px-12 py-4 flex items-center gap-4 transition-all duration-500 hover:pr-16 cursor-pointer">
-          <span className="text-[10px] uppercase tracking-[0.4em] font-bold">Ajouter au panier</span>
+        {/* Le bouton est devenu un Link qui pointe vers la fiche produit Medusa */}
+        <Link 
+          href={`/shop/${jersey.realId}`}
+          className="group relative overflow-hidden bg-white text-[#131313] px-12 py-4 flex items-center gap-4 transition-all duration-500 hover:pr-16 cursor-pointer inline-flex"
+        >
+          <span className="text-[10px] uppercase tracking-[0.4em] font-bold">Acquérir</span>
           <motion.span animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }} className="text-xs">→</motion.span>
           <div className="absolute inset-0 bg-[#C3C3C3]/10 -translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
-        </button>
+        </Link>
       </div>
     </motion.div>
   );

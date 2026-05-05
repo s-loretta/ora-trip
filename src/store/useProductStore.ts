@@ -1,47 +1,32 @@
 import { create } from "zustand";
 import { ProductService, ProductData } from "@/services/product.service";
 
-// --- TYPAGE STRICT DE L'ÉTAT GLOBAL ---
 interface ProductState {
   products: ProductData[];
   isLoading: boolean;
+  hasFetched: boolean; // ← garde mémoire que le fetch est terminé
   error: string | null;
-  // Actions
   fetchProducts: () => Promise<void>;
   getProductById: (id: string) => ProductData | undefined;
 }
 
-// --- CRÉATION DU STORE ZUSTAND ---
 export const useProductStore = create<ProductState>((set, get) => ({
-  // État initial
   products: [],
   isLoading: false,
+  hasFetched: false,
   error: null,
 
-  // Méthode asynchrone pour hydrater le store depuis MedusaJS
   fetchProducts: async () => {
-    const { products, isLoading } = get();
-
-    // Si on charge déjà ou qu'on a déjà les produits, on ne fait rien (optimisation)
-    if (isLoading || products.length > 0) return;
-
-    set({ isLoading: true, error: null });
-
+    // On skip si déjà en cours OU déjà terminé
+    if (get().isLoading || get().hasFetched) return;
+    set({ isLoading: true });
     try {
-      const fetchedProducts = await ProductService.fetchInventory();
-      set({ products: fetchedProducts, isLoading: false });
-    } catch (error) {
-      console.error("Zustand: Échec de l'hydratation des produits.", error);
-      set({ 
-        error: "Impossible de charger les produits. Veuillez réessayer.", 
-        isLoading: false 
-      });
+      const fetched = await ProductService.fetchInventory();
+      set({ products: fetched, isLoading: false, hasFetched: true });
+    } catch (e) {
+      set({ error: "Erreur de chargement", isLoading: false, hasFetched: true });
     }
   },
 
-  // Sélecteur utilitaire pour la page Produit (PDP)
-  getProductById: (id: string) => {
-    const { products } = get();
-    return products.find((product) => product.id === id);
-  },
+  getProductById: (id: string) => get().products.find((p) => p.id === id),
 }));

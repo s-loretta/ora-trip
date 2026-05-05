@@ -1,35 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, use } from "react";
+import { notFound } from "next/navigation";
 import { motion, useScroll, useTransform, Variants, Transition } from "framer-motion";
-
-// --- TYPAGE STRICT ---
-interface PieceData {
-  id: string;
-  title: string;
-  year: string;
-  origin: string;
-  material: string;
-  history: string;
-  value: string;
-  imagePath: string;
-  formats: string[];
-  maxAllocation: number;
-}
-
-const mockPiece: PieceData = {
-  id: "ora-001",
-  title: "L'Héritage de 98",
-  year: "1998",
-  origin: "Paris, France",
-  material: "100% Polyester Jacquard",
-  history:
-    "Une relique tissée dans le temps. Ce tissu ne raconte pas seulement une victoire, mais le souffle retenu d'une nation entière. Ses lignes asymétriques capturent le chaos géométrique de la fin des années 90, restaurées aujourd'hui pour l'éternité.",
-  value: "450 €",
-  imagePath: "/placeholder-maillot.png",
-  formats: ["S-M", "L-XL", "XXL", "52"], // Tailles adaptées au luxe (équivalent S, M, L, XL)
-  maxAllocation: 3, // Quantité max
-};
+import { useProductStore } from "@/store/useProductStore";
 
 // --- CONFIGURATION PHYSIQUE DES RESSORTS ---
 const luxurySpring: Transition = {
@@ -56,12 +30,33 @@ const textReveal: Variants = {
   },
 };
 
-export default function PiecePage() {
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default function PiecePage({ params }: PageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  
-  // États locaux pour le Format (Taille) et l'Allocation (Quantité)
-  const [selectedFormat, setSelectedFormat] = useState<string>(mockPiece.formats[0]);
-  const [allocation, setAllocation] = useState<number>(1);
+
+  const resolvedParams = use(params);
+  const pieceId = resolvedParams.id;
+
+  const getProductById = useProductStore((state) => state.getProductById);
+  const fetchProducts = useProductStore((state) => state.fetchProducts);
+  const isLoading = useProductStore((state) => state.isLoading);
+
+  // BUG CORRIGÉ : fetchProducts n'était jamais déclenché → store vide → notFound()
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const piece = getProductById(pieceId);
+
+  const [selectedFormat, setSelectedFormat] = useState<{ name: string; stock: number } | null>(null);
+  const [allocation, setAllocation] = useState(1);
+
+  useEffect(() => {
+    if (piece && piece.formats.length > 0) setSelectedFormat(piece.formats[0]);
+  }, [piece]);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -71,128 +66,133 @@ export default function PiecePage() {
   const imageScale = useTransform(scrollYProgress, [0, 1], [1, 1.05]);
   const imageBrightness = useTransform(scrollYProgress, [0, 1], [1, 0.5]);
 
-  // Fonctions de gestion de l'allocation
+  // --- RENDU CONDITIONNEL ---
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-dark flex items-center justify-center">
+        <div className="w-4 h-4 rounded-full bg-light-grey animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!piece && !isLoading) {
+    notFound();
+  }
+
+  if (!piece) return null;
+
   const decreaseAllocation = () => setAllocation((prev) => Math.max(1, prev - 1));
-  const increaseAllocation = () => setAllocation((prev) => Math.min(mockPiece.maxAllocation, prev + 1));
+
+  const increaseAllocation = () => {
+    if (selectedFormat && allocation < selectedFormat.stock) {
+      setAllocation((prev) => prev + 1);
+    }
+  };
+
+  const handleAcquisition = () => {
+    console.log("Acquisition initiée pour :", {
+      pieceId: piece.id,
+      format: selectedFormat,
+      quantity: allocation,
+    });
+  };
 
   return (
     <main
       ref={containerRef}
       className="relative w-full bg-dark text-light-grey selection:bg-white selection:text-dark min-h-[200vh]"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-12 max-w-[1920px] mx-auto">
-        
-        {/* COLONNE GAUCHE : L'ŒUVRE (Fixée avec "Passe-partout") */}
-        <div className="lg:col-span-6 relative h-screen sticky top-0 overflow-hidden bg-dark flex items-center justify-center p-8 lg:p-24">
+      <div className="grid grid-cols-1 lg:grid-cols-12 max-w-480 mx-auto">
+
+        {/* COLONNE GAUCHE : L'ŒUVRE */}
+        <div className="lg:col-span-6 h-screen sticky top-0 overflow-hidden bg-dark flex items-center justify-center p-8 lg:p-24">
           <motion.div
-            className="w-full max-w-[500px] aspect-[4/5] relative flex items-center justify-center overflow-hidden"
-            style={{ 
-              scale: imageScale, 
-              filter: useTransform(imageBrightness, (v) => `brightness(${v})`) 
+            className="w-full max-w-125 aspect-4/5 flex items-center justify-center overflow-hidden"
+            style={{
+              scale: imageScale,
+              filter: useTransform(imageBrightness, (v) => `brightness(${v})`),
             }}
           >
             <motion.img
-              layoutId={`piece-image-${mockPiece.id}`}
-              src={mockPiece.imagePath}
-              alt={mockPiece.title}
+              layoutId={`piece-image-${piece.id}`}
+              src={piece.imagePath}
+              alt={piece.title}
               className="object-cover w-full h-full opacity-90"
             />
           </motion.div>
         </div>
 
-        {/* COLONNE DROITE : L'ÉDITORIAL (Défilante) */}
+        {/* COLONNE DROITE : L'ÉDITORIAL */}
         <div className="lg:col-span-6 px-8 py-32 lg:px-24 flex flex-col justify-center min-h-screen">
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="show"
-            className="max-w-lg"
-          >
-            {/* Fil d'Ariane Minimaliste */}
+          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="max-w-lg">
+
+            {/* Fil d'Ariane */}
             <div className="overflow-hidden mb-8">
-              <motion.p
-                variants={textReveal}
-                className="font-mono text-[10px] tracking-widest uppercase border-b border-light-grey/10 pb-4"
-              >
-                Archive / {mockPiece.origin} / {mockPiece.year}
+              <motion.p variants={textReveal} className="font-mono text-[10px] tracking-widest uppercase border-b border-light-grey/10 pb-4">
+                Archive / {piece.origin} / {piece.year}
               </motion.p>
             </div>
 
-            {/* Titre Sculptural */}
+            {/* Titre */}
             <div className="overflow-hidden mb-12">
-              <motion.h1
-                variants={textReveal}
-                className="font-title text-5xl lg:text-7xl italic text-white leading-[1.1]"
-              >
-                {mockPiece.title}
+              <motion.h1 variants={textReveal} className="font-title text-5xl lg:text-7xl italic text-white leading-[1.1]">
+                {piece.title}
               </motion.h1>
             </div>
 
             {/* Histoire */}
             <div className="overflow-hidden mb-16">
-              <motion.p
-                variants={textReveal}
-                className="text-sm leading-relaxed text-light-grey/80"
-              >
-                {mockPiece.history}
+              <motion.p variants={textReveal} className="text-sm leading-relaxed text-light-grey/80">
+                {piece.history}
               </motion.p>
             </div>
 
             {/* SÉLECTEURS : Format & Allocation */}
             <div className="flex flex-col gap-8 mb-16">
-              
+
               {/* Sélecteur de Format */}
-              <div className="overflow-hidden">
-                <motion.div variants={textReveal} className="flex flex-col gap-4">
-                  <span className="font-mono text-[10px] tracking-widest uppercase text-light-grey/60">
-                    Format
-                  </span>
-                  <div className="flex gap-6">
-                    {mockPiece.formats.map((format) => (
-                      <button
-                        key={format}
-                        onClick={() => setSelectedFormat(format)}
-                        className={`font-mono text-[10px] tracking-widest uppercase pb-1 transition-colors duration-300 relative ${
-                          selectedFormat === format ? "text-white" : "text-light-grey/40 hover:text-light-grey"
-                        }`}
-                      >
-                        {format}
-                        {selectedFormat === format && (
-                          <motion.div 
-                            layoutId="activeFormatLine"
-                            className="absolute bottom-0 left-0 right-0 h-[1px] bg-white"
-                            transition={luxurySpring}
-                          />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
+              <div className="flex gap-6">
+                {piece.formats.map((f) => (
+                  <button
+                    key={f.name}
+                    onClick={() => { setSelectedFormat(f); setAllocation(1); }}
+                    className={selectedFormat?.name === f.name ? "text-white" : "text-light-grey/40"}
+                  >
+                    {f.name}
+                  </button>
+                ))}
               </div>
 
               {/* Sélecteur d'Allocation */}
               <div className="overflow-hidden">
                 <motion.div variants={textReveal} className="flex flex-col gap-4">
                   <span className="font-mono text-[10px] tracking-widest uppercase text-light-grey/60">
-                    Allocation
+                    Quantité
                   </span>
                   <div className="flex items-center gap-6 font-mono text-[10px] tracking-widest text-white">
-                    <button 
+                    <button
                       onClick={decreaseAllocation}
-                      className={`pb-1 transition-colors ${allocation <= 1 ? "text-light-grey/20 cursor-not-allowed" : "text-light-grey/60 hover:text-white"}`}
                       disabled={allocation <= 1}
+                      className={`pb-1 transition-colors ${allocation <= 1 ? "text-light-grey/20 cursor-not-allowed" : "text-light-grey/60 hover:text-white"}`}
                     >
-                      -
+                      −
                     </button>
                     <span className="w-4 text-center">{allocation}</span>
-                    <button 
+                    <button
                       onClick={increaseAllocation}
-                      className={`pb-1 transition-colors ${allocation >= mockPiece.maxAllocation ? "text-light-grey/20 cursor-not-allowed" : "text-light-grey/60 hover:text-white"}`}
-                      disabled={allocation >= mockPiece.maxAllocation}
+                      disabled={!selectedFormat || allocation >= selectedFormat.stock}
+                      className={`pb-1 transition-colors ${!selectedFormat || allocation >= selectedFormat.stock ? "text-light-grey/20 cursor-not-allowed" : "text-light-grey/60 hover:text-white"}`}
                     >
                       +
                     </button>
                   </div>
+                  {/* Indicateur de stock restant */}
+                  {selectedFormat && (
+                    <span className="font-mono text-[9px] tracking-widest text-light-grey/30">
+                      {selectedFormat.stock} unité{selectedFormat.stock > 1 ? "s" : ""} disponible{selectedFormat.stock > 1 ? "s" : ""}
+                    </span>
+                  )}
                 </motion.div>
               </div>
             </div>
@@ -200,9 +200,9 @@ export default function PiecePage() {
             {/* Inventaire Technique */}
             <div className="flex flex-col gap-4 mb-16">
               {[
-                { label: "Identification", value: mockPiece.id },
-                { label: "Matière", value: mockPiece.material },
-                { label: "Valeur", value: mockPiece.value },
+                { label: "Identification", value: piece.id },
+                { label: "Matière", value: piece.material },
+                { label: "Valeur", value: piece.value },
               ].map((detail, idx) => (
                 <div key={idx} className="overflow-hidden">
                   <motion.div
@@ -213,7 +213,7 @@ export default function PiecePage() {
                       {detail.label}
                     </span>
                     <span className="font-mono text-[10px] tracking-widest uppercase text-white">
-                      {detail.value}
+      {detail.value}
                     </span>
                   </motion.div>
                 </div>
@@ -225,34 +225,33 @@ export default function PiecePage() {
               <motion.button
                 variants={textReveal}
                 whileHover="hover"
-                className="w-full relative py-6 flex items-center justify-between group overflow-hidden cursor-pointer"
+                onClick={handleAcquisition}
+                disabled={piece.maxAllocation === 0}
+                className="w-full relative py-6 flex items-center justify-between group overflow-hidden cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <div className="absolute top-0 left-0 w-full h-[1px] bg-light-grey/10" />
-                <div className="absolute bottom-0 left-0 w-full h-[1px] bg-light-grey/10" />
+                <div className="absolute top-0 left-0 w-full h-px bg-light-grey/10" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-light-grey/10" />
 
                 <motion.div
                   className="absolute inset-0 bg-white z-0 origin-left"
                   initial={{ scaleX: 0 }}
-                  variants={{
-                    hover: { scaleX: 1, transition: luxurySpring },
-                  }}
+                  variants={{ hover: { scaleX: 1, transition: luxurySpring } }}
                 />
 
                 <span className="font-mono text-[10px] tracking-widest uppercase relative z-10 transition-colors duration-500 group-hover:text-dark text-white">
-                  Initier l'Acquisition
+                  {piece.maxAllocation === 0 ? "Archive Épuisée" : "Initier l'Acquisition"}
                 </span>
 
                 <motion.div
                   className="relative z-10 flex items-center text-white group-hover:text-dark transition-colors duration-500"
-                  variants={{
-                    hover: { x: 10, transition: luxurySpring },
-                  }}
+                  variants={{ hover: { x: 10, transition: luxurySpring } }}
                 >
-                  <span className="w-8 h-[1px] bg-current mr-2" />
+                  <span className="w-8 h-px bg-current mr-2" />
                   <span className="border-t border-r border-current p-1 rotate-45 transform" />
                 </motion.div>
               </motion.button>
             </div>
+
           </motion.div>
         </div>
       </div>

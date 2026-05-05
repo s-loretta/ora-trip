@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useForm } from 'react-hook-form';
+import emailjs from '@emailjs/browser'; // Ajout de l'import EmailJS
 
 // 1. Définition des types pour le formulaire
 interface ContactFormData {
@@ -34,11 +35,31 @@ const ContactPage = () => {
   const selectedSubject = watch("subject");
   const messageValue = watch("message");
 
-  // 4. Typage de la fonction de soumission
+  // 4. Typage de la fonction de soumission avec la logique EmailJS
   const onSubmit = async (data: ContactFormData) => {
     if (data.address_secondary) return; // Honeypot
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    console.log("Transmission ORA TRIP :", data);
+    
+    try {
+      // On récupère les variables d'environnement
+      // Le " || '' " permet de rassurer TypeScript au cas où la variable serait undefined
+      const serviceID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '';
+      const templateID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || '';
+      const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '';
+
+      const templateParams = {
+        name: data.name,
+        email: data.email,
+        subject: data.subject,
+        orderNumber: data.orderNumber || "Non applicable",
+        message: data.message,
+      };
+
+      await emailjs.send(serviceID, templateID, templateParams, publicKey);
+      console.log("Transmission ORA TRIP réussie :", data);
+    } catch (error) {
+      console.error("Erreur lors de la transmission :", error);
+      throw error; 
+    }
   };
 
   // --- VARIANTS D'ANIMATION TYPÉS ---
@@ -94,6 +115,7 @@ const ContactPage = () => {
                   @Oratripfr
                 </span>
               </div>
+              
             </div>
           </motion.div>
         </motion.div>

@@ -97,7 +97,7 @@ export const ProductService = {
       id: product.handle || product.id,
       title: (product.title || "Anonyme").toUpperCase(),
       year: (product.metadata?.year as string) || "Archive",
-      origin: (product.metadata?.origin as string) || "Studio ORA",
+      origin: (product.metadata?.origin as string) || "ORA TRIP",
       material: product.material || "Non spécifié",
       history: product.description || "Aucune histoire rédigée.",
       value: priceFormatted,

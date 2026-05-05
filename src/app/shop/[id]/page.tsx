@@ -206,7 +206,7 @@ export default function PiecePage({ params }: PageProps) {
               <div className="overflow-hidden">
                 <motion.div variants={textReveal} className="flex flex-col gap-4">
                   <span className="font-mono text-[10px] tracking-widest uppercase text-light-grey/60">
-                    Allocation
+                    Quantite
                   </span>
                   <div className="flex items-center gap-6 font-mono text-[10px] tracking-widest text-white">
                     <button
@@ -250,7 +250,7 @@ export default function PiecePage({ params }: PageProps) {
               {[
                 { label: "Identification", value: piece.id },
                 { label: "Matière", value: piece.material },
-                { label: "Valeur", value: piece.value },
+                { label: "Prix", value: piece.value },
               ].map((detail, idx) => (
                 <div key={idx} className="overflow-hidden">
                   <motion.div

@@ -65,7 +65,7 @@ const ProductArchive = () => {
     return (
       <div className="bg-[#131313] h-screen w-full flex items-center justify-center">
         <span className="font-mono text-xs text-[#C3C3C3] uppercase tracking-[0.4em] animate-pulse">
-          Accès aux archives...
+          Accès au shop...
         </span>
       </div>
     );
@@ -225,11 +225,11 @@ const JerseyUI = ({ jersey, index, total, progress }: { jersey: Jersey, index: n
       <div className="flex flex-col md:flex-row justify-between items-center gap-6 font-mono">
         <div className="flex gap-10 text-[10px] uppercase tracking-[0.2em]">
           <div className="flex flex-col gap-1">
-            <span className="text-[#C3C3C3]/20">Origine</span>
+            <span className="text-[#C3C3C3]/20">Brand</span>
             <span className="text-white">{jersey.culture}</span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-[#C3C3C3]/20">Saison</span>
+            <span className="text-[#C3C3C3]/20">Année</span>
             <span className="text-white">{jersey.year}</span>
           </div>
         </div>
@@ -239,7 +239,7 @@ const JerseyUI = ({ jersey, index, total, progress }: { jersey: Jersey, index: n
           href={`/shop/${jersey.realId}`}
           className="group relative overflow-hidden bg-white text-[#131313] px-12 py-4 flex items-center gap-4 transition-all duration-500 hover:pr-16 cursor-pointer inline-flex"
         >
-          <span className="text-[10px] uppercase tracking-[0.4em] font-bold">Acquérir</span>
+          <span className="text-[10px] uppercase tracking-[0.4em] font-bold">J'achete !</span>
           <motion.span animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }} className="text-xs">→</motion.span>
           <div className="absolute inset-0 bg-[#C3C3C3]/10 -translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
         </Link>

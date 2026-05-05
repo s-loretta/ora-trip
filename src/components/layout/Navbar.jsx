@@ -3,27 +3,25 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { useUIStore } from '@/store/useUIStore'; // IMPORT DU STORE GLOBAL
+import { useUIStore } from '@/store/useUIStore'; 
+import { useCartStore } from '@/store/useCartStore'; // AJOUT : Store Panier
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isOpenCompte, setIsOpenCompte] = useState(false);
   
-  // Récupération de la fonction pour ouvrir le panier
-  const { openCart, isCartOpen } = useUIStore(); 
+  const { openCart } = useUIStore(); 
+  
+  // AJOUT : Récupération de l'état du panier
+  const itemCount = useCartStore((state) => state.getItemCount());
+  const isHydrated = useCartStore((state) => state.isHydrated);
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const toggleMenuCompte = () => setIsOpenCompte(!isOpenCompte);
 
   return (
-    // J'ai baissé le z-index de la nav à z-40 pour que le tiroir (z-50) passe bien au-dessus.
     <nav className="z-40 flex items-center justify-between px-6 py-4 w-full text-light-grey fixed top-0 font-mono pointer-events-none">
       
-      {/* 
-        Le conteneur global a pointer-events-none pour ne pas bloquer les clics 
-        sur la page en dessous, mais on remet pointer-events-auto sur les éléments cliquables.
-      */}
-
       {/* Logo */}
       <Link href='/' className="pointer-events-auto"> 
         <img 
@@ -33,7 +31,7 @@ const Navbar = () => {
         />
       </Link>
 
-      {/* Liens Desktop (cachés sur mobile) */}
+      {/* Liens Desktop */}
       <div className='md:flex hidden pointer-events-auto'>
         <ul className='flex gap-8 tracking-[0.2em] font-bold '>
           <Link href="/histoire" ><li className="hover:opacity-50 cursor-pointer transition-opacity">NOTRE HISTOIRE</li></Link>
@@ -43,13 +41,27 @@ const Navbar = () => {
         </ul> 
       </div>
       
-      {/* Actions (Panier, Compte, Burger) */}
+      {/* Actions */}
       <div className='flex gap-5 items-center pointer-events-auto'>
         
-        {/* BOUTON INVENTAIRE (PANIER) */}
-        {/* On remplace le Link par un button et on appelle openCart */}
-        <button onClick={openCart} className="hover:opacity-80 transition-opacity">
+        {/* BOUTON INVENTAIRE (PANIER) MODIFIÉ */}
+        <button onClick={openCart} className="hover:opacity-80 transition-opacity flex items-center gap-2">
           <img src="/panier.png" alt="Panier" className="h-7 w-auto cursor-pointer" />
+          
+          {/* AJOUT TECHNIQUE : Compteur minimaliste */}
+          <AnimatePresence mode="popLayout">
+            {isHydrated && itemCount > 0 && (
+              <motion.span
+                key={itemCount}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className="relative right-4 -top-3 w-4 h-4 flex items-center justify-center bg-white text-[9px] text-dark rounded-full font-mono leading-none"
+              >
+                {itemCount}
+              </motion.span>
+            )}
+          </AnimatePresence>
         </button>
         
         {/* Compte Desktop */}
@@ -79,7 +91,7 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* --- MENU COMPTE MOBILE --- */}
+      {/* --- MENU COMPTE MOBILE (Inchangé) --- */}
       <AnimatePresence>
         {isOpenCompte && (
           <motion.div 
@@ -103,7 +115,7 @@ const Navbar = () => {
         )}
       </AnimatePresence>
 
-      {/* --- MENU NAVIGATION MOBILE --- */}
+      {/* --- MENU NAVIGATION MOBILE (Inchangé) --- */}
       <AnimatePresence>
         {isOpen && (
           <motion.div 

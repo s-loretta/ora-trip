@@ -2,9 +2,10 @@
 
 import { useRef, useState, useEffect, use } from "react";
 import { notFound } from "next/navigation";
-import { motion, useScroll, useTransform, Variants, Transition } from "framer-motion";
+import { motion, useScroll, useTransform, Variants, Transition, AnimatePresence } from "framer-motion";
 import { useProductStore } from "@/store/useProductStore";
-
+import { useCartStore } from "@/store/useCartStore"; // Import du store panier
+import { useUIStore } from "@/store/useUIStore";
 // --- CONFIGURATION PHYSIQUE DES RESSORTS ---
 const luxurySpring: Transition = {
   type: "spring",
@@ -36,6 +37,8 @@ interface PageProps {
 
 export default function PiecePage({ params }: PageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const addToCart = useCartStore((state) => state.addToCart);
+  const openCart = useUIStore((state) => state.openCart);
 
   const resolvedParams = use(params);
   const pieceId = resolvedParams.id;
@@ -44,7 +47,6 @@ export default function PiecePage({ params }: PageProps) {
   const fetchProducts = useProductStore((state) => state.fetchProducts);
   const isLoading = useProductStore((state) => state.isLoading);
 
-  // BUG CORRIGÉ : fetchProducts n'était jamais déclenché → store vide → notFound()
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
@@ -64,9 +66,7 @@ export default function PiecePage({ params }: PageProps) {
   });
 
   const imageScale = useTransform(scrollYProgress, [0, 1], [1, 1.05]);
-  const imageBrightness = useTransform(scrollYProgress, [0, 1], [1, 0.5]);
-
-  // --- RENDU CONDITIONNEL ---
+  const imageBrightness = useTransform(scrollYProgress, [0, 1], [1, 0.4]);
 
   if (isLoading) {
     return (
@@ -91,24 +91,44 @@ export default function PiecePage({ params }: PageProps) {
   };
 
   const handleAcquisition = () => {
-    console.log("Acquisition initiée pour :", {
-      pieceId: piece.id,
-      format: selectedFormat,
+    if (!piece || !selectedFormat) return;
+
+    // Création d'un ID unique pour cette combinaison produit + taille
+    const cartItemId = `${piece.id}_${selectedFormat.name}`;
+
+    // On prépare l'objet pour le store
+    // Note : On parse la valeur (ex: "120€") en nombre si nécessaire. 
+    // Ici, j'utilise une conversion simple pour l'exemple.
+    const priceAsNumber = typeof piece.value === "string"
+      ? parseFloat(piece.value.replace(/[^0-9.]/g, ""))
+      : piece.value;
+
+    addToCart({
+      id: cartItemId,
+      productId: piece.id,
+      title: piece.title,
+      format: selectedFormat.name,
+      price: priceAsNumber,
       quantity: allocation,
+      maxStock: selectedFormat.stock,
+      imagePath: piece.imagePath,
     });
+
+    // UX : Ouvrir le panier immédiatement pour montrer que l'ajout a réussi
+    openCart();
   };
 
   return (
     <main
       ref={containerRef}
-      className="relative w-full bg-dark text-light-grey selection:bg-white selection:text-dark min-h-[200vh]"
+      className="relative w-full bg-dark text-light-grey selection:bg-white selection:text-dark min-h-screen"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-12 max-w-480 mx-auto">
+      <div className="flex flex-col lg:grid lg:grid-cols-12 max-w-480 mx-auto relative">
 
-        {/* COLONNE GAUCHE : L'ŒUVRE */}
-        <div className="lg:col-span-6 h-screen sticky top-0 overflow-hidden bg-dark flex items-center justify-center p-8 lg:p-24">
+        {/* COLONNE GAUCHE : L'ŒUVRE (Sticky sur Mobile et Desktop) */}
+        <div className="lg:col-span-6 h-[70vh] lg:h-screen sticky top-0 overflow-hidden bg-dark flex items-center justify-center p-8 lg:p-24 z-0">
           <motion.div
-            className="w-full max-w-125 aspect-4/5 flex items-center justify-center overflow-hidden"
+            className="w-full max-w-[400px] lg:max-w-125 aspect-4/5 flex items-center justify-center overflow-hidden"
             style={{
               scale: imageScale,
               filter: useTransform(imageBrightness, (v) => `brightness(${v})`),
@@ -123,14 +143,20 @@ export default function PiecePage({ params }: PageProps) {
           </motion.div>
         </div>
 
-        {/* COLONNE DROITE : L'ÉDITORIAL */}
-        <div className="lg:col-span-6 px-8 py-32 lg:px-24 flex flex-col justify-center min-h-screen">
-          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="max-w-lg">
+        {/* COLONNE DROITE : L'ÉDITORIAL (Passe par-dessus l'image sur mobile grâce au z-10 et bg-dark) */}
+        <div className="lg:col-span-6 px-6 py-16 lg:py-32 lg:px-24 flex flex-col justify-center min-h-screen bg-dark lg:bg-transparent z-10 relative">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-10%" }}
+            className="max-w-lg mx-auto lg:mx-0 w-full"
+          >
 
             {/* Fil d'Ariane */}
             <div className="overflow-hidden mb-8">
-              <motion.p variants={textReveal} className="font-mono text-[10px] tracking-widest uppercase border-b border-light-grey/10 pb-4">
-                Archive / {piece.origin} / {piece.year}
+              <motion.p variants={textReveal} className="font-mono text-[10px] tracking-widest uppercase border-b border-light-grey/10 pb-4 text-light-grey/60">
+                ORA TRIP / Maillot / {piece.title}
               </motion.p>
             </div>
 
@@ -149,26 +175,38 @@ export default function PiecePage({ params }: PageProps) {
             </div>
 
             {/* SÉLECTEURS : Format & Allocation */}
-            <div className="flex flex-col gap-8 mb-16">
+            <div className="flex flex-col gap-10 mb-16">
 
-              {/* Sélecteur de Format */}
-              <div className="flex gap-6">
-                {piece.formats.map((f) => (
-                  <button
-                    key={f.name}
-                    onClick={() => { setSelectedFormat(f); setAllocation(1); }}
-                    className={selectedFormat?.name === f.name ? "text-white" : "text-light-grey/40"}
-                  >
-                    {f.name}
-                  </button>
-                ))}
+              {/* Sélecteur de Format avec animation de ligne de luxe */}
+              <div className="overflow-hidden">
+                <motion.div variants={textReveal} className="flex gap-8 border-b border-light-grey/10">
+                  {piece.formats.map((f) => {
+                    const isActive = selectedFormat?.name === f.name;
+                    return (
+                      <button
+                        key={f.name}
+                        onClick={() => { setSelectedFormat(f); setAllocation(1); }}
+                        className={`relative pb-4 font-mono text-[10px] tracking-widest uppercase transition-colors duration-500 ${isActive ? "text-white" : "text-light-grey/40 hover:text-light-grey/80"}`}
+                      >
+                        {f.name}
+                        {isActive && (
+                          <motion.div
+                            layoutId="activeFormatIndicator"
+                            className="absolute bottom-0 left-0 right-0 h-[1px] bg-white"
+                            transition={luxurySpring}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </motion.div>
               </div>
 
-              {/* Sélecteur d'Allocation */}
+              {/* Sélecteur d'Allocation (Quantité) avec effet barillet */}
               <div className="overflow-hidden">
                 <motion.div variants={textReveal} className="flex flex-col gap-4">
                   <span className="font-mono text-[10px] tracking-widest uppercase text-light-grey/60">
-                    Quantité
+                    Allocation
                   </span>
                   <div className="flex items-center gap-6 font-mono text-[10px] tracking-widest text-white">
                     <button
@@ -178,7 +216,23 @@ export default function PiecePage({ params }: PageProps) {
                     >
                       −
                     </button>
-                    <span className="w-4 text-center">{allocation}</span>
+
+                    {/* Chiffre animé */}
+                    <div className="w-4 h-4 overflow-hidden relative flex items-center justify-center">
+                      <AnimatePresence mode="popLayout">
+                        <motion.span
+                          key={allocation}
+                          initial={{ y: 15, opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          exit={{ y: -15, opacity: 0 }}
+                          transition={luxurySpring}
+                          className="absolute"
+                        >
+                          {allocation}
+                        </motion.span>
+                      </AnimatePresence>
+                    </div>
+
                     <button
                       onClick={increaseAllocation}
                       disabled={!selectedFormat || allocation >= selectedFormat.stock}
@@ -187,12 +241,6 @@ export default function PiecePage({ params }: PageProps) {
                       +
                     </button>
                   </div>
-                  {/* Indicateur de stock restant */}
-                  {selectedFormat && (
-                    <span className="font-mono text-[9px] tracking-widest text-light-grey/30">
-                      {selectedFormat.stock} unité{selectedFormat.stock > 1 ? "s" : ""} disponible{selectedFormat.stock > 1 ? "s" : ""}
-                    </span>
-                  )}
                 </motion.div>
               </div>
             </div>
@@ -213,7 +261,7 @@ export default function PiecePage({ params }: PageProps) {
                       {detail.label}
                     </span>
                     <span className="font-mono text-[10px] tracking-widest uppercase text-white">
-      {detail.value}
+                      {detail.value}
                     </span>
                   </motion.div>
                 </div>
@@ -239,7 +287,7 @@ export default function PiecePage({ params }: PageProps) {
                 />
 
                 <span className="font-mono text-[10px] tracking-widest uppercase relative z-10 transition-colors duration-500 group-hover:text-dark text-white">
-                  {piece.maxAllocation === 0 ? "Archive Épuisée" : "Initier l'Acquisition"}
+                  {piece.maxAllocation === 0 ? "Sold out" : "Ajouter au Panier"}
                 </span>
 
                 <motion.div

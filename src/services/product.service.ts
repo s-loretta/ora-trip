@@ -18,8 +18,10 @@ export interface ProductData {
   history: string;
   value: string;
   imagePath: string;
-  formats: { name: string; stock: number }[];
+  images: string[];
+  formats: {id: string, name: string; stock: number }[];
   maxAllocation: number;
+  
 }
 
 async function medusaFetch(path: string): Promise<any> {
@@ -68,8 +70,8 @@ export const ProductService = {
     const variants = product.variants || [];
 
     const formats = variants.map((v: any) => ({
+      id: v.id, // <--- AJOUT CRUCIAL ICI
       name: v.title || "Unique",
-      // inventory_quantity est maintenant injecté par notre route backend
       stock: typeof v.inventory_quantity === "number" ? v.inventory_quantity : 0,
     }));
 
@@ -93,6 +95,16 @@ export const ProductService = {
     ? `${priceAmount.toFixed(2).replace(".", ",")} €`
     : "Prix sur demande"
 
+    const productImages: string[] = product.images?.map((img: any) => img.url) || [];
+    
+    // Fallbacks si la galerie est vide mais qu'il y a un thumbnail, ou si tout est vide
+    if (productImages.length === 0 && product.thumbnail) {
+      productImages.push(product.thumbnail);
+    }
+    if (productImages.length === 0) {
+      productImages.push("/placeholder-maillot.png");
+    }
+
     return {
       id: product.handle || product.id,
       title: (product.title || "Anonyme").toUpperCase(),
@@ -101,10 +113,8 @@ export const ProductService = {
       material: product.material || "Non spécifié",
       history: product.description || "Aucune histoire rédigée.",
       value: priceFormatted,
-      imagePath:
-        product.thumbnail ||
-        product.images?.[0]?.url ||
-        "/placeholder-maillot.png",
+      imagePath: productImages[0], // L'image principale reste la première
+      images: productImages,       // <--- Le tableau complet pour le slider
       formats,
       maxAllocation: totalStock,
     };

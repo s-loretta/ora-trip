@@ -17,8 +17,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
   error: null,
 
   fetchProducts: async () => {
-    // On skip si déjà en cours OU déjà terminé
-    if (get().isLoading || get().hasFetched) return;
     set({ isLoading: true });
     try {
       const fetched = await ProductService.fetchInventory();

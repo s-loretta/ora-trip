@@ -3,7 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/CartDrawer"; // Injection du composant d'inventaire
-
+import NotificationModal from "@/components/NotificationModal";
 // --- CONFIGURATION TYPOGRAPHIQUE (ORA TRIP ADN) ---
 
 // Font Title (Serif/Italique pour les grands titres)
@@ -49,6 +49,7 @@ export default function RootLayout({
         `}
       >
         <Navbar />
+        <NotificationModal />
         
         {/* LE TIROIR GLOBAL : Reste invisible et inactif jusqu'à son déclenchement */}
         <CartDrawer />

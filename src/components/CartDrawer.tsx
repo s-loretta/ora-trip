@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { useRouter } from 'next/navigation'; // <-- 1. AJOUT DU ROUTER
 import { useUIStore } from '@/store/useUIStore';
 import { useCartStore } from '@/store/useCartStore';
 import { formatPrice } from '@/utils/formatPrice';
@@ -22,16 +23,23 @@ const drawerVariants: Variants = {
 };
 
 export default function CartDrawer() {
+  const router = useRouter(); // <-- 2. INSTANCIATION DU ROUTER
   const { isCartOpen, closeCart } = useUIStore();
   
   // Récupération des données et actions du panier
   const { items, removeFromCart, updateQuantity, getCartTotal, isHydrated } = useCartStore();
 
   // Calcul du sous-total via le store
-  const rawSubtotal = getCartTotal();;
+  const rawSubtotal = getCartTotal();
 
   // Sécurité Hydratation : On ne rend rien tant que Zustand n'a pas récupéré le LocalStorage
   if (!isHydrated) return null;
+
+  // --- NOUVELLE FONCTION DE NAVIGATION ---
+  const handleProceedToCheckout = () => {
+    closeCart(); // On ferme le tiroir pour une transition propre
+    router.push('/checkout'); // On redirige vers le tunnel de paiement
+  };
 
   return (
     <AnimatePresence>
@@ -63,7 +71,7 @@ export default function CartDrawer() {
               </span>
               <button 
                 onClick={closeCart}
-                className="font-mono text-xs text-light-grey hover:text-white transition-colors"
+                className="font-mono text-xs text-light-grey hover:text-white transition-colors cursor-pointer"
               >
                 X
               </button>
@@ -104,68 +112,69 @@ export default function CartDrawer() {
                         {/* DÉTAILS */}
                         <div className="flex flex-col justify-between flex-1 py-1 border-b border-light-grey/5 pb-6">
                           <div className="flex justify-between items-start">
-             <div>
-               <h4 className="font-title text-2xl text-white italic mb-1">{item.title}</h4>
-               <p className="font-mono text-[9px] tracking-widest text-light-grey/40 uppercase">
-                 Taille {item.format}
-               </p>
-             </div>
-             {/* PRIX DE L'ARTICLE FORMATÉ */}
-             <span className="font-mono text-xs text-white">
-               {formatPrice(item.price)} 
-             </span>
-           </div>
+                            <div>
+                              <h4 className="font-title text-2xl text-white italic mb-1">{item.title}</h4>
+                              <p className="font-mono text-[9px] tracking-widest text-light-grey/40 uppercase">
+                                Taille {item.format}
+                              </p>
+                            </div>
+                            {/* PRIX DE L'ARTICLE FORMATÉ */}
+                            <span className="font-mono text-xs text-white">
+                              {formatPrice(item.price)} 
+                            </span>
+                          </div>
 
                           <div className="flex justify-between items-end mt-4">
                             <button 
                               onClick={() => removeFromCart(item.id)}
-                              className="font-mono text-[9px] uppercase tracking-widest text-light-grey/30 hover:text-white transition-colors border-b border-transparent hover:border-white pb-1"
+                              className="font-mono text-[9px] uppercase tracking-widest text-light-grey/30 hover:text-white transition-colors border-b border-transparent hover:border-white pb-1 cursor-pointer"
                             >
                               Retirer
                             </button>
 
                             {/* QUANTITÉ AVEC ANIMATION BARILLET */}
                             <div className="flex items-center gap-4 font-mono text-[10px] text-light-grey">
-  <button 
-    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-    disabled={item.quantity <= 1}
-    className={`transition-colors ${item.quantity <= 1 ? "opacity-10 cursor-not-allowed" : "hover:text-white"}`}
-  >
-    —
-  </button>
-  
-  <div className="overflow-hidden h-4 w-4 relative flex justify-center">
-    <AnimatePresence mode="popLayout">
-      <motion.span
-        key={item.quantity}
-        initial={{ y: 10, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: -10, opacity: 0 }}
-        className="absolute text-white"
-      >
-        {item.quantity}
-      </motion.span>
-    </AnimatePresence>
-  </div>
+                              <button 
+                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                disabled={item.quantity <= 1}
+                                className={`transition-colors ${item.quantity <= 1 ? "opacity-10 cursor-not-allowed" : "hover:text-white cursor-pointer"}`}
+                              >
+                                —
+                              </button>
+                              
+                              <div className="overflow-hidden h-4 w-4 relative flex justify-center">
+                                <AnimatePresence mode="popLayout">
+                                  <motion.span
+                                    key={item.quantity}
+                                    initial={{ y: 10, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    exit={{ y: -10, opacity: 0 }}
+                                    className="absolute text-white"
+                                  >
+                                    {item.quantity}
+                                  </motion.span>
+                                </AnimatePresence>
+                              </div>
 
-  <button 
-    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-    disabled={item.quantity >= item.maxStock} // Blocage ici[cite: 2, 3]
-    className={`transition-colors ${item.quantity >= item.maxStock ? "opacity-10 cursor-not-allowed" : "hover:text-white"}`}
-  >
-    +
-  </button>
-</div>
-{/* Optionnel : Micro-label si le stock est atteint */}
-{item.quantity >= item.maxStock && (
-  <motion.span 
-    initial={{ opacity: 0 }} 
-    animate={{ opacity: 1 }} 
-    className="absolute -bottom-4 right-0 font-mono text-[7px] uppercase text-light-grey/20"
-  >
-    Limite atteinte
-  </motion.span>
-)}
+                              <button 
+                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                disabled={item.quantity >= item.maxStock}
+                                className={`transition-colors ${item.quantity >= item.maxStock ? "opacity-10 cursor-not-allowed" : "hover:text-white cursor-pointer"}`}
+                              >
+                                +
+                              </button>
+                            </div>
+                            
+                            {/* Optionnel : Micro-label si le stock est atteint */}
+                            {item.quantity >= item.maxStock && (
+                              <motion.span 
+                                initial={{ opacity: 0 }} 
+                                animate={{ opacity: 1 }} 
+                                className="absolute -bottom-4 right-0 font-mono text-[7px] uppercase text-light-grey/20"
+                              >
+                                Limite atteinte
+                              </motion.span>
+                            )}
                           </div>
                         </div>
                       </motion.div>
@@ -184,22 +193,24 @@ export default function CartDrawer() {
                 </div>
                 {/* PRIX TOTAL ANIMÉ */}
                 <div className="overflow-hidden h-8">
-             <AnimatePresence mode="popLayout">
-               <motion.span 
-                 key={rawSubtotal} // On garde la clé sur la valeur brute pour l'animation
-                 initial={{ y: 20, opacity: 0 }}
-                 animate={{ y: 0, opacity: 1 }}
-                 exit={{ y: -20, opacity: 0 }}
-                 className="block text-2xl text-white font-mono"
-               >
-                 {formatPrice(rawSubtotal)} {/* SOUS-TOTAL FORMATÉ */}
-               </motion.span>
-             </AnimatePresence>
-           </div>
+                  <AnimatePresence mode="popLayout">
+                    <motion.span 
+                      key={rawSubtotal}
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -20, opacity: 0 }}
+                      className="block text-2xl text-white font-mono"
+                    >
+                      {formatPrice(rawSubtotal)}
+                    </motion.span>
+                  </AnimatePresence>
+                </div>
               </div>
 
+              {/* BOUTON MODIFIÉ POUR LA REDIRECTION */}
               <button 
-                className="w-full bg-white text-dark py-6 font-mono text-[10px] uppercase tracking-[0.5em] font-bold hover:bg-light-grey transition-colors duration-500 disabled:opacity-20"
+                onClick={handleProceedToCheckout}
+                className="w-full bg-white text-dark py-6 font-mono text-[10px] uppercase tracking-[0.5em] font-bold hover:bg-light-grey transition-colors duration-500 disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"
                 disabled={items.length === 0}
               >
                 Procéder à l'achat

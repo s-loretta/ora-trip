@@ -8,7 +8,7 @@ import * as z from 'zod';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUserStore } from '@/store/useUserStore';
-
+import { useNotificationStore } from '@/store/useNotificationStore';
 // --- 1. SCHÉMA DE VALIDATION ZOD ---
 const loginSchema = z.object({
   email: z.string().email("Format d'email invalide."),
@@ -47,7 +47,7 @@ const LoginFormContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isRegistered = searchParams.get('registered') === 'true';
-
+  const showNotification = useNotificationStore((state) => state.showNotification);
   const [focusedField, setFocusedField] = useState<keyof LoginFormData | null>(null);
 
   const login = useUserStore((state) => state.login);
@@ -71,15 +71,19 @@ const LoginFormContent = () => {
   }, [clearError]);
 
   const onSubmit = async (data: LoginFormData) => {
-    if (data.address_secondary) return; // Honeypot trap
+  if (data.address_secondary) return; // Honeypot trap
+  
+  try {
+    await login(data.email, data.password);
     
-    try {
-      await login(data.email, data.password);
-      router.push('/compte'); 
-    } catch (err) {
-      console.error("Tentative d'accès échouée.");
-    }
-  };
+    // 2. Déclenche le message de succès !
+    showNotification("Connexion réussie. Bienvenue.");
+    
+    router.push('/compte'); 
+  } catch (err) {
+    console.error("Tentative d'accès échouée.");
+  }
+};
 
   return (
     <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-20 lg:gap-32 items-center">

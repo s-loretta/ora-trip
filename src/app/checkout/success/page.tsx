@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { motion, Variants } from 'framer-motion';
 import Link from 'next/link';
 import { useCartStore } from '@/store/useCartStore';
 import { useSearchParams } from 'next/navigation';
-import { sdk } from '@/lib/sdk'; // ✅ AJOUT : Le SDK officiel
+import { sdk } from '@/lib/sdk'; 
 
 // --- CHORÉGRAPHIE ORA TRIP ---
 const LUXURY_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -36,8 +36,9 @@ const lineVariants: Variants = {
   }
 };
 
-export default function SuccessPage() {
-  const { clearCart, cartId: localCartId } = useCartStore(); // ✅ On récupère l'ID du panier
+// 1. NOUVEAU COMPOSANT : On isole tout le contenu qui lit l'URL
+function SuccessContent() {
+  const { clearCart, cartId: localCartId } = useCartStore(); 
   const searchParams = useSearchParams();
   const paymentIntent = searchParams.get('payment_intent');
   
@@ -49,23 +50,19 @@ export default function SuccessPage() {
     // Fonction asynchrone pour valider la commande chez Medusa
     const finalizeOrder = async () => {
       try {
-        // Idéalement, si tu as passé le cart_id dans l'URL de retour Stripe, tu peux l'utiliser ici.
-        // Sinon, on utilise le cartId sauvegardé dans ton Zustand
         const activeCartId = searchParams.get('cart_id') || localCartId;
 
         if (activeCartId) {
-          // ✅ L'étape cruciale : Medusa transforme le panier en vraie commande
+          // L'étape cruciale : Medusa transforme le panier en vraie commande
           const response = await sdk.store.cart.complete(activeCartId);
           
           if (response.type === "order") {
-            // On récupère le vrai numéro de commande généré par Medusa (ex: 24, 25...)
             setOrderId(response.order.display_id?.toString() || response.order.id);
           }
         }
       } catch (error) {
         console.error("Erreur lors de la finalisation de l'archive :", error);
       } finally {
-        // Quoi qu'il arrive, on arrête le chargement et on vide le panier local
         setIsProcessing(false);
         clearCart();
       }
@@ -74,7 +71,6 @@ export default function SuccessPage() {
     finalizeOrder();
   }, [localCartId, searchParams, clearCart]);
 
-  // Si on n'a pas de numéro Medusa, on utilise le fallback Stripe pour l'esthétique
   const finalOrderNumber = orderId 
     ? `ORA-${orderId}` 
     : (paymentIntent ? `ORA-${paymentIntent.slice(-8).toUpperCase()}` : "ORA-XXXX");
@@ -165,9 +161,22 @@ export default function SuccessPage() {
 
         {/* --- FOOTER DISCRET --- */}
         <motion.span variants={itemVariants} className="text-[8px] tracking-[0.5em] text-white/10 uppercase mt-20">
-          ORA TRIP — TOUS DROITS RÉSERVÉS 2026
+          ORA TRIP — TOUS DROITS RÉSERVÉS 2026- PAR SAMBA LORETTA
         </motion.span>
       </motion.div>
     </main>
+  );
+}
+
+// 2. PAGE PRINCIPALE : On englobe le contenu dans un Suspense pour Vercel
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-dark flex items-center justify-center font-mono text-[10px] text-white tracking-[0.5em] uppercase animate-pulse">
+        Vérification de la transaction...
+      </main>
+    }>
+      <SuccessContent />
+    </Suspense>
   );
 }

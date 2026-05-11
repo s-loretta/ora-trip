@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/store/useUserStore';
+// ✅ NOUVEAU : On utilise le SDK officiel (v2)
+import { sdk } from '@/lib/sdk'; 
 
 const LUXURY_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -26,27 +28,73 @@ const itemVariants: Variants = {
 type TabType = 'aperçu' | 'commandes' | 'retours' | 'adresses' | 'paramètres';
 const TABS: TabType[] = ['aperçu', 'commandes', 'retours', 'adresses', 'paramètres'];
 
+// --- UTILITAIRES DE FORMATAGE ---
+const formatPrice = (amount: number, currencyCode: string = 'eur') => {
+  if (!amount) return "0,00 €";
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: currencyCode.toUpperCase(),
+  }).format(amount / 100); 
+};
+
+const formatDate = (dateString: string) => {
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
+  }).format(new Date(dateString));
+};
+
+const translateStatus = (status: string, fulfillment: string) => {
+  if (status === 'canceled') return 'Annulée';
+  if (fulfillment === 'shipped' || fulfillment === 'fulfilled') return 'Expédiée';
+  if (fulfillment === 'partially_fulfilled') return 'Partiellement expédiée';
+  if (status === 'captured') return 'Préparation en cours';
+  return 'En attente de validation';
+};
+
 export default function AccountDashboard() {
   const router = useRouter();
   
-  // --- CONNEXION AU VRAI BACKEND (ZUSTAND + MEDUSA) ---
   const { customer, isAuthenticated, isLoading, logout } = useUserStore();
   const [activeTab, setActiveTab] = useState<TabType>('aperçu');
+  
+  const [orders, setOrders] = useState<any[]>([]);
+  const [isFetchingData, setIsFetchingData] = useState(true);
 
-  // Sécurité : Redirection immédiate si l'utilisateur n'est pas connecté
-  useEffect(() => {
+  // Sécurité et Récupération des données via SDK v2
+useEffect(() => {
+    // 1. Redirection si l'utilisateur n'est pas connecté
     if (!isLoading && !isAuthenticated) {
       router.push('/connexion');
+      return;
     }
-  }, [isLoading, isAuthenticated, router]);
+
+    // 2. On empêche le re-fetch inutile causé par la déconnexion
+    if (isAuthenticated && isFetchingData) {
+      const fetchCustomerData = async () => {
+        try {
+          const { orders: medusaOrders } = await sdk.store.order.list();
+          setOrders(medusaOrders || []);
+        } catch (error: any) {
+          // ⚠️ CRUCIAL : On utilise console.warn et on filtre l'erreur 401 
+          // pour que Next.js Turbopack ne déclenche plus l'écran rouge
+          if (error?.status !== 401 && error?.message !== 'Unauthorized') {
+            console.warn("Information : Impossible de récupérer les commandes.", error.message);
+          }
+        } finally {
+          setIsFetchingData(false);
+        }
+      };
+
+      fetchCustomerData();
+    }
+  }, [isLoading, isAuthenticated, router, isFetchingData]);
 
   const handleLogout = async () => {
     await logout();
-    router.push('/'); // Redirection vers l'accueil après déconnexion
+    router.push('/'); 
   };
 
-  // Écran de chargement expérientiel (Skeleton Luxe)
-  if (isLoading || !customer) {
+  if (isLoading || isFetchingData || !customer) {
     return (
       <div className="min-h-screen bg-dark flex items-center justify-center">
         <motion.span 
@@ -54,11 +102,13 @@ export default function AccountDashboard() {
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           className="font-mono text-[10px] tracking-[0.5em] text-white uppercase"
         >
-          Chargement du compte...
+          Synchronisation de l'archive...
         </motion.span>
       </div>
     );
   }
+
+  const lastOrder = orders.length > 0 ? orders[0] : null;
 
   return (
     <div className="min-h-screen bg-dark text-light-grey selection:bg-white selection:text-dark px-6 md:px-20 pt-40 pb-32 font-mono">
@@ -76,7 +126,7 @@ export default function AccountDashboard() {
               </span>
               <span className="overflow-hidden pb-4">
                 <motion.span variants={itemVariants} className="block italic opacity-80 text-light-grey">
-                  {customer.first_name.toUpperCase()}.
+                  {customer.first_name?.toUpperCase() || "MEMBRE"}.
                 </motion.span>
               </span>
             </h1>
@@ -128,16 +178,25 @@ export default function AccountDashboard() {
                   <motion.div variants={itemVariants} className="border-b border-light-grey/10 pb-8 flex flex-col justify-between">
                     <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40">Dernière commande</span>
                     <div className="mt-8">
-                      {/* Note : Ces données seront à dynamiser plus tard avec les commandes Medusa */}
-                      <p className="text-2xl font-light text-white">N° ORA-0892</p>
-                      <p className="text-[10px] text-light-grey/60 mt-2">Maillot Milan AC 93/94</p>
-                      <div className="w-full h-px bg-light-grey/10 mt-6 relative overflow-hidden">
-                        <motion.div initial={{ width: 0 }} animate={{ width: "66%" }} transition={{ duration: 1.5, ease: LUXURY_EASE, delay: 0.5 }} className="absolute top-0 left-0 h-full bg-white" />
-                      </div>
-                      <div className="flex justify-between items-center mt-4">
-                        <span className="text-[9px] uppercase tracking-widest text-white">En cours de livraison</span>
-                        <button className="text-[9px] uppercase tracking-[0.2em] text-light-grey/40 hover:text-white transition-colors">[ Suivre le colis ]</button>
-                      </div>
+                      {lastOrder ? (
+                        <>
+                          <p className="text-2xl font-light text-white">N° ORA-{lastOrder.display_id}</p>
+                          <p className="text-[10px] text-light-grey/60 mt-2">
+                            {lastOrder.items?.length || 0} {(lastOrder.items?.length || 0) > 1 ? 'pièces' : 'pièce'} - {formatPrice(lastOrder.total, lastOrder.currency_code)}
+                          </p>
+                          <div className="w-full h-px bg-light-grey/10 mt-6 relative overflow-hidden">
+                            <motion.div initial={{ width: 0 }} animate={{ width: "66%" }} transition={{ duration: 1.5, ease: LUXURY_EASE, delay: 0.5 }} className="absolute top-0 left-0 h-full bg-white" />
+                          </div>
+                          <div className="flex justify-between items-center mt-4">
+                            <span className="text-[9px] uppercase tracking-widest text-white">
+                              {translateStatus(lastOrder.status, lastOrder.fulfillment_status)}
+                            </span>
+                            <button className="text-[9px] uppercase tracking-[0.2em] text-light-grey/40 hover:text-white transition-colors">[ Voir détails ]</button>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-[10px] text-light-grey/60 mt-2 uppercase tracking-widest">Aucune acquisition récente.</p>
+                      )}
                     </div>
                   </motion.div>
 
@@ -145,7 +204,7 @@ export default function AccountDashboard() {
                     <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40">Programme de fidélité</span>
                     <div className="mt-8">
                       <p className="font-title text-4xl italic text-white">Membre.</p>
-                      <p className="text-[10px] text-light-grey/60 mt-4 tracking-widest uppercase">Solde de points : 0</p>
+                      <p className="text-[10px] text-light-grey/60 mt-4 tracking-widest uppercase">L'archive privée vous est ouverte.</p>
                     </div>
                   </motion.div>
                 </div>
@@ -161,78 +220,70 @@ export default function AccountDashboard() {
                   <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40 w-1/4 text-right">Actions</span>
                 </div>
                 
-                {/* Mocks de commandes en attendant de lier l'API Medusa des commandes */}
-                <OrderRow id="ORA-0892" date="12.05.2026" item="Milan AC 93/94 - L" price="180€" status="Expédiée" />
-                <OrderRow id="ORA-0714" date="04.02.2026" item="Arsenal 05/06 - XL" price="210€" status="Livrée" />
-                <OrderRow id="ORA-0341" date="18.11.2025" item="Juventus 97/98 - M" price="150€" status="Livrée" />
+                {orders.length > 0 ? (
+                  orders.map((order) => (
+                    <OrderRow 
+                      key={order.id}
+                      id={`ORA-${order.display_id}`} 
+                      date={formatDate(order.created_at)} 
+                      item={`${order.items?.length || 0} {(order.items?.length || 0) > 1 ? 'pièces' : 'pièce'}`} 
+                      price={formatPrice(order.total, order.currency_code)} 
+                      status={translateStatus(order.status, order.fulfillment_status)} 
+                    />
+                  ))
+                ) : (
+                  <motion.p variants={itemVariants} className="text-[10px] text-light-grey/60 uppercase tracking-widest mt-10">
+                    Votre archive personnelle est vide.
+                  </motion.p>
+                )}
               </motion.div>
             )}
 
-            {/* 3. RETOURS & SAV */}
+            {/* 3. RETOURS */}
             {activeTab === 'retours' && (
               <motion.div key="retours" variants={containerVariants} initial="hidden" animate="visible" exit="exit" className="flex flex-col gap-10 pt-4">
                 <motion.p variants={itemVariants} className="text-light-grey/60 text-sm font-light italic leading-relaxed max-w-xl">
-                  Les articles doivent vous correspondre parfaitement. Effectuez une demande de retour si un produit ne répond pas à vos attentes.
+                  Les articles doivent vous correspondre parfaitement. Contactez notre conciergerie pour initier un retour ou un échange.
                 </motion.p>
                 <motion.div variants={itemVariants}>
-                  <button className="group relative inline-flex items-center gap-6 cursor-pointer mt-4">
+                  <a href="mailto:contact@oratrip.com" className="group relative inline-flex items-center gap-6 cursor-pointer mt-4">
                     <span className="font-title text-xl tracking-widest text-white group-hover:italic transition-all duration-500">
-                      FAIRE UN RETOUR
+                      CONTACTER LE VESTIAIRE
                     </span>
                     <div className="w-12 h-px bg-white group-hover:w-24 transition-all duration-500 ease-out" />
-                  </button>
+                  </a>
                 </motion.div>
-                
-                <div className="mt-12">
-                   <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40 block mb-6">Retours en cours</span>
-                   <div className="py-6 border-b border-light-grey/10 flex justify-between items-center">
-                      <div>
-                        <p className="text-sm text-white">RMA-0714</p>
-                        <p className="text-[10px] text-light-grey/60 mt-2">Lié à la commande ORA-0714</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] uppercase tracking-widest text-white">En cours de traitement</span>
-                      </div>
-                   </div>
-                </div>
               </motion.div>
             )}
 
-            {/* 4. ADRESSES ET PAIEMENTS */}
+            {/* 4. ADRESSES */}
             {activeTab === 'adresses' && (
               <motion.div key="adresses" variants={containerVariants} initial="hidden" animate="visible" exit="exit" className="grid grid-cols-1 md:grid-cols-2 gap-20 pt-4">
                 
-                {/* Adresses */}
                 <div className="flex flex-col gap-8">
-                  <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40">Adresse de livraison (Défaut)</span>
-                  <motion.div variants={itemVariants} className="border border-light-grey/10 p-8 flex flex-col gap-4 group hover:border-light-grey/30 transition-colors duration-500">
-                    <p className="text-white text-sm uppercase tracking-widest">{customer.first_name} {customer.last_name}</p>
-                    <p className="text-light-grey/60 font-light text-sm">
-                      124 Rue du Faubourg Saint-Honoré<br/>
-                      75008 Paris<br/>
-                      France
-                    </p>
-                    <div className="flex gap-6 mt-4 pt-4 border-t border-light-grey/10">
-                      <button className="text-[9px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors">Modifier</button>
-                      <button className="text-[9px] uppercase tracking-[0.2em] text-red-400/40 hover:text-red-400 transition-colors">Supprimer</button>
-                    </div>
-                  </motion.div>
+                  <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40">Vos carnets d'adresses</span>
+                  
+                  {/* Validation sécurisée du type des adresses pour Medusa V2 */}
+                  {((customer as any).addresses?.length > 0) ? (
+                    (customer as any).addresses.map((address: any) => (
+                      <motion.div key={address.id} variants={itemVariants} className="border border-light-grey/10 p-8 flex flex-col gap-4 group hover:border-light-grey/30 transition-colors duration-500">
+                        <p className="text-white text-sm uppercase tracking-widest">{address.first_name} {address.last_name}</p>
+                        <p className="text-light-grey/60 font-light text-sm">
+                          {address.address_1}<br/>
+                          {address.address_2 && <>{address.address_2}<br/></>}
+                          {address.postal_code} {address.city}<br/>
+                          {address.country_code?.toUpperCase()}
+                        </p>
+                        <div className="flex gap-6 mt-4 pt-4 border-t border-light-grey/10">
+                          <button className="text-[9px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors">Modifier</button>
+                          <button className="text-[9px] uppercase tracking-[0.2em] text-red-400/40 hover:text-red-400 transition-colors">Supprimer</button>
+                        </div>
+                      </motion.div>
+                    ))
+                  ) : (
+                     <p className="text-[10px] text-light-grey/60 uppercase tracking-widest mt-2">Aucune adresse enregistrée.</p>
+                  )}
                   <button className="text-[9px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors w-max">[ + Ajouter une adresse ]</button>
-                </div>
-
-                {/* Paiements */}
-                <div className="flex flex-col gap-8">
-                  <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40">Moyens de paiement</span>
-                  <motion.div variants={itemVariants} className="border border-light-grey/10 p-8 flex flex-col gap-4">
-                    <div className="flex justify-between items-center">
-                      <p className="text-white text-sm uppercase tracking-widest">VISA</p>
-                      <span className="text-[10px] text-light-grey/40">Expire 10/28</span>
-                    </div>
-                    <p className="text-light-grey/60 font-mono text-sm tracking-[0.2em]">**** **** **** 4242</p>
-                    <div className="flex gap-6 mt-4 pt-4 border-t border-light-grey/10">
-                      <button className="text-[9px] uppercase tracking-[0.2em] text-red-400/40 hover:text-red-400 transition-colors">Supprimer</button>
-                    </div>
-                  </motion.div>
                 </div>
 
               </motion.div>
@@ -243,40 +294,15 @@ export default function AccountDashboard() {
               <motion.div key="parametres" variants={containerVariants} initial="hidden" animate="visible" exit="exit" className="flex flex-col gap-20 pt-4">
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
-                  {/* Informations Personnelles */}
                   <div className="flex flex-col gap-0">
                     <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40 mb-6">Informations personnelles</span>
-                    <InfoRow label="Prénom" value={customer.first_name} editable />
-                    <InfoRow label="Nom" value={customer.last_name} editable />
-                    <InfoRow label="Email" value={customer.email} editable />
+                    <InfoRow label="Prénom" value={customer.first_name || ""} editable />
+                    <InfoRow label="Nom" value={customer.last_name || ""} editable />
+                    <InfoRow label="Email" value={customer.email || ""} editable />
                     <InfoRow label="Téléphone" value={customer.phone || "Non renseigné"} editable />
                   </div>
 
-                  {/* Préférences & Sécurité */}
                   <div className="flex flex-col gap-10">
-                    <div className="flex flex-col gap-6">
-                       <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40">Newsletter</span>
-                       <label className="flex items-center gap-4 cursor-pointer group">
-                         <div className="w-4 h-4 border border-light-grey/20 flex items-center justify-center group-hover:border-white transition-colors">
-                            <div className="w-2 h-2 bg-white" />
-                         </div>
-                         <span className="text-[10px] uppercase tracking-widest text-light-grey/80">S'abonner à la newsletter ORA TRIP</span>
-                       </label>
-                    </div>
-
-                    <div className="flex flex-col gap-6 pt-10 border-t border-light-grey/10">
-                       <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40">Sécurité</span>
-                       <button className="text-[10px] tracking-[0.4em] uppercase text-white/60 hover:text-white flex items-center gap-4 w-max transition-colors duration-500">
-                        <span className="w-4 h-px bg-white/40" />
-                        Modifier le mot de passe
-                      </button>
-                      <button className="text-[10px] tracking-[0.4em] uppercase text-white/60 hover:text-white flex items-center gap-4 w-max transition-colors duration-500">
-                        <span className="w-4 h-px bg-white/40" />
-                        Activer la double authentification (2FA)
-                      </button>
-                    </div>
-
-                    {/* Zone de Danger */}
                     <div className="pt-20">
                       <HoldToDeleteButton />
                     </div>
@@ -327,7 +353,6 @@ const OrderRow = ({ id, date, item, price, status }: { id: string, date: string,
       <span className="text-sm text-white">{price}</span>
       <div className="flex gap-4">
         <button className="text-[9px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors">Facture</button>
-        <button className="text-[9px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors">Commander à nouveau</button>
       </div>
     </div>
   </motion.div>
@@ -345,7 +370,6 @@ const HoldToDeleteButton = () => {
           if (prev >= 100) {
             clearInterval(interval);
             console.log("Compte supprimé.");
-            // Ajouter ici la logique réelle de suppression de compte
             return 100;
           }
           return prev + 2; 
@@ -363,14 +387,12 @@ const HoldToDeleteButton = () => {
       onPointerDown={() => setIsHolding(true)}
       onPointerUp={() => setIsHolding(false)}
       onPointerLeave={() => setIsHolding(false)}
-      // Support tactile mobile
       onTouchStart={() => setIsHolding(true)}
       onTouchEnd={() => setIsHolding(false)}
     >
       <span className={`text-[10px] tracking-[0.4em] uppercase transition-colors duration-500 select-none ${isHolding ? 'text-red-400' : 'text-red-400/40 group-hover:text-red-400/80'}`}>
         {progress === 100 ? "COMPTE SUPPRIMÉ." : "Maintenir pour supprimer le compte"}
       </span>
-      
       <div className="absolute -bottom-3 left-0 w-full h-px bg-red-400/10 overflow-hidden">
         <motion.div 
           className="h-full bg-red-400"

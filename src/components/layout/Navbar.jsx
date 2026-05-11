@@ -1,23 +1,40 @@
 "use client"; 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; 
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation'; 
+
 import { useUIStore } from '@/store/useUIStore'; 
-import { useCartStore } from '@/store/useCartStore'; // AJOUT : Store Panier
+import { useCartStore } from '@/store/useCartStore'; 
+import { useUserStore } from '@/store/useUserStore'; 
 
 const Navbar = () => {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isOpenCompte, setIsOpenCompte] = useState(false);
+  const [isDesktopDropdownOpen, setIsDesktopDropdownOpen] = useState(false); 
   
   const { openCart } = useUIStore(); 
   
-  // AJOUT : Récupération de l'état du panier
   const itemCount = useCartStore((state) => state.getItemCount());
   const isHydrated = useCartStore((state) => state.isHydrated);
 
+  const { isAuthenticated, logout, checkSession } = useUserStore();
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
+
   const toggleMenu = () => setIsOpen(!isOpen);
   const toggleMenuCompte = () => setIsOpenCompte(!isOpenCompte);
+
+  const handleLogout = async () => {
+    await logout();
+    setIsDesktopDropdownOpen(false);
+    setIsOpenCompte(false);
+    router.push('/');
+  };
 
   return (
     <nav className="z-40 flex items-center justify-between px-6 py-4 w-full text-light-grey fixed top-0 font-mono pointer-events-none">
@@ -44,11 +61,10 @@ const Navbar = () => {
       {/* Actions */}
       <div className='flex gap-5 items-center pointer-events-auto'>
         
-        {/* BOUTON INVENTAIRE (PANIER) MODIFIÉ */}
+        {/* BOUTON INVENTAIRE (PANIER) */}
         <button onClick={openCart} className="hover:opacity-80 transition-opacity flex items-center gap-2">
           <img src="/panier.png" alt="Panier" className="h-7 w-auto cursor-pointer" />
           
-          {/* AJOUT TECHNIQUE : Compteur minimaliste */}
           <AnimatePresence mode="popLayout">
             {isHydrated && itemCount > 0 && (
               <motion.span
@@ -64,16 +80,68 @@ const Navbar = () => {
           </AnimatePresence>
         </button>
         
-        {/* Compte Desktop */}
-        <Link href="/inscription" className="hidden md:block sm:opacity-100 disabled:opacity-50">
+        {/* --- COMPTE DESKTOP INTELLIGENT --- */}
+        <div className="relative hidden md:block sm:opacity-100 disabled:opacity-50">
+          
+          {/* L'icône déclenche toujours le menu, qu'on soit connecté ou non */}
           <img 
             src="/compte.png" 
             alt="Compte" 
             className="h-7 w-auto cursor-pointer hover:opacity-80 transition-opacity" 
+            onClick={() => setIsDesktopDropdownOpen(!isDesktopDropdownOpen)}
           />
-        </Link>
 
-        {/* Compte Mobile */}
+          {/* Menu Déroulant Desktop Universel */}
+          <AnimatePresence>
+            {isDesktopDropdownOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="absolute right-0 top-12 w-48 bg-[#131313] border border-white/10 p-5 flex flex-col gap-5 z-50 pointer-events-auto shadow-2xl"
+              >
+                {isAuthenticated ? (
+                  // Options pour utilisateur CONNECTÉ
+                  <>
+                    <Link 
+                      href="/compte" 
+                      onClick={() => setIsDesktopDropdownOpen(false)}
+                      className="text-[10px] tracking-widest uppercase hover:text-white transition-colors"
+                    >
+                      Mon Compte
+                    </Link>
+                    <button 
+                      onClick={handleLogout}
+                      className="text-[10px] tracking-widest uppercase text-left text-white/50 hover:text-white transition-colors"
+                    >
+                      Se déconnecter
+                    </button>
+                  </>
+                ) : (
+                  // Options pour utilisateur DÉCONNECTÉ
+                  <>
+                    <Link 
+                      href="/connexion" 
+                      onClick={() => setIsDesktopDropdownOpen(false)}
+                      className="text-[10px] tracking-widest uppercase hover:text-white transition-colors"
+                    >
+                      Se connecter
+                    </Link>
+                    <Link 
+                      href="/inscription" 
+                      onClick={() => setIsDesktopDropdownOpen(false)}
+                      className="text-[10px] tracking-widest uppercase hover:text-white transition-colors"
+                    >
+                      S'inscrire
+                    </Link>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* --- COMPTE MOBILE --- */}
         <img 
           src="/compte.png" 
           alt="Compte" 
@@ -91,7 +159,7 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* --- MENU COMPTE MOBILE (Inchangé) --- */}
+      {/* --- MENU COMPTE MOBILE INTELLIGENT --- */}
       <AnimatePresence>
         {isOpenCompte && (
           <motion.div 
@@ -104,10 +172,21 @@ const Navbar = () => {
             <div className="flex justify-end mb-20" onClick={toggleMenuCompte}>
               <span className="text-sm tracking-widest cursor-pointer">X</span>
             </div>
+            
             <ul className="flex flex-col gap-8 text-2xl font-title tracking-[0.2em]">
-              <Link href="/connexion"><li onClick={toggleMenuCompte} className="hover:text-white">CONNECTEZ-VOUS</li></Link> 
-              <Link href="/inscription"><li onClick={toggleMenuCompte} className="hover:text-white">INSCRIVEZ-VOUS</li></Link>
+              {isAuthenticated ? (
+                <>
+                  <Link href="/compte"><li onClick={toggleMenuCompte} className="hover:text-white">MON COMPTE</li></Link> 
+                  <li onClick={handleLogout} className="hover:text-white cursor-pointer">SE DÉCONNECTER</li>
+                </>
+              ) : (
+                <>
+                  <Link href="/connexion"><li onClick={toggleMenuCompte} className="hover:text-white">CONNECTEZ-VOUS</li></Link> 
+                  <Link href="/inscription"><li onClick={toggleMenuCompte} className="hover:text-white">INSCRIVEZ-VOUS</li></Link>
+                </>
+              )}
             </ul>
+
             <div className="mt-auto border-t border-white/10 pt-6">
               <p className="text-[10px] tracking-widest opacity-50">ORA TRIP — 2026</p>
             </div>

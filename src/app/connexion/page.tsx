@@ -49,7 +49,7 @@ const LoginFormContent = () => {
   const isRegistered = searchParams.get('registered') === 'true';
   const showNotification = useNotificationStore((state) => state.showNotification);
   const [focusedField, setFocusedField] = useState<keyof LoginFormData | null>(null);
-
+  const { register: registerUser, isAuthenticated, isLoading } = useUserStore();
   const login = useUserStore((state) => state.login);
   const storeError = useUserStore((state) => state.error);
   const clearError = useUserStore((state) => state.clearError);
@@ -69,6 +69,23 @@ const LoginFormContent = () => {
   useEffect(() => {
     clearError();
   }, [clearError]);
+
+  useEffect(() => {
+    // Si le chargement initial de session est terminé ET que l'utilisateur est connecté
+    if (!isLoading && isAuthenticated) {
+      // Redirection immédiate et silencieuse vers l'archive
+      router.push('/compte');
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  // Optionnel : Éviter le "flash" de la page d'inscription pendant la vérification
+  if (isLoading || isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-dark flex items-center justify-center">
+         {/* Un loader minimaliste pour patienter le temps de la redirection */}
+      </div>
+    );
+  }
 
   const onSubmit = async (data: LoginFormData) => {
   if (data.address_secondary) return; // Honeypot trap

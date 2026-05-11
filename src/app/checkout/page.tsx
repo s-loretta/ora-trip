@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/useCartStore';
 import { useUserStore } from '@/store/useUserStore';
 import { formatPrice } from '@/utils/formatPrice';
+import { CheckoutService } from '@/services/checkout.service';
 
 // --- IMPORTS STRIPE ---
 import { loadStripe } from '@stripe/stripe-js';
@@ -45,16 +46,22 @@ const stepVariants: Variants = {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  
+
+  const [medusaCartId, setMedusaCartId] = useState<string | null>(null);
+  const [isProcessingStep, setIsProcessingStep] = useState(false);
+  const [stepError, setStepError] = useState<string | null>(null);
+
   const { items, getCartTotal, isHydrated } = useCartStore();
   const { customer, isAuthenticated } = useUserStore();
-  
+
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard');
   const [focusedField, setFocusedField] = useState<keyof ShippingFormData | null>(null);
-  
-  // Simulation du Client Secret de MedusaJS
-  const [clientSecret, setClientSecret] = useState<string | null>("simulated_secret_for_design");
+
+  // ÉTATS DYNAMIQUES POUR MEDUSA
+  const [shippingOptions, setShippingOptions] = useState<any[]>([]);
+  const [selectedShippingId, setSelectedShippingId] = useState<string | null>(null);
+
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   const { register, handleSubmit, formState: { errors } } = useForm<ShippingFormData>({
     resolver: zodResolver(shippingSchema),
@@ -71,21 +78,65 @@ export default function CheckoutPage() {
     }
   }, [isHydrated, items, router]);
 
-  const onShippingSubmit = (data: ShippingFormData) => {
-    console.log("Adresse validée :", data);
-    setStep(2); 
+  const onShippingSubmit = async (data: ShippingFormData) => {
+    setIsProcessingStep(true);
+    setStepError(null);
+    try {
+      // 1. On formate l'adresse pour Medusa (avec la sécurité toLowerCase sur 2 lettres)
+      const formattedAddress = {
+        first_name: data.firstName,
+        last_name: data.lastName,
+        address_1: data.address,
+        city: data.city,
+        postal_code: data.postalCode,
+        country_code: data.country.toLowerCase().slice(0, 2),
+        email: data.email
+      };
+
+      const cart = await CheckoutService.syncCartAndAddress(items, formattedAddress, medusaCartId || undefined);
+      setMedusaCartId(cart.id);
+
+      // 2. ⚡️ CHARGEMENT DYNAMIQUE DES OPTIONS DE LIVRAISON DEPUIS MEDUSA
+      const options = await CheckoutService.getShippingOptions(cart.id);
+      setShippingOptions(options);
+
+      // 3. Auto-sélection de la première option pour une meilleure UX
+      if (options && options.length > 0) {
+        setSelectedShippingId(options[0].id);
+      }
+
+      setStep(2);
+    } catch (error: any) {
+      setStepError(error.message);
+    } finally {
+      setIsProcessingStep(false);
+    }
   };
 
-  const onMethodSubmit = () => {
-    // C'est ici que tu appelleras Medusa pour créer la Payment Session Stripe
-    // et récupérer le vrai clientSecret avant de passer à l'étape 3.
-    setStep(3); 
+  const onMethodSubmit = async () => {
+    if (!medusaCartId || !selectedShippingId) return; // Sécurité
+
+    setIsProcessingStep(true);
+    setStepError(null);
+    try {
+      // ⚡️ CONNEXION FINALE : On envoie le vrai ID de livraison à Medusa et Stripe
+      const secret = await CheckoutService.initializePayment(medusaCartId, selectedShippingId);
+
+      setClientSecret(secret);
+      setStep(3);
+    } catch (error: any) {
+      setStepError(error.message);
+    } finally {
+      setIsProcessingStep(false);
+    }
   };
 
   if (!isHydrated || items.length === 0) return null;
 
+  // CALCULS DYNAMIQUES DU PRIX
   const subtotal = getCartTotal();
-  const shippingCost = shippingMethod === 'express' ? 1500 : 0; 
+  const selectedOptionData = shippingOptions.find(opt => opt.id === selectedShippingId);
+  const shippingCost = selectedOptionData?.amount ? selectedOptionData.amount*100 : 0; // Utilise le vrai prix Medusa
   const total = subtotal + shippingCost;
 
   // --- HACK STRIPE APPEARANCE (Design System ORA TRIP) ---
@@ -127,14 +178,19 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-dark text-light-grey selection:bg-white selection:text-dark px-6 md:px-20 pt-40 pb-32 font-mono">
       <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-20">
-        
+
         {/* --- COLONNE GAUCHE : LE TUNNEL --- */}
         <div className="lg:col-span-7 flex flex-col gap-20 relative">
-          
+
           {/* ÉTAPE 1 */}
           <motion.section variants={stepVariants} initial="active" animate={step === 1 ? "active" : "inactive"} className="flex flex-col gap-10 origin-left">
             <div className="flex justify-between items-end border-b border-light-grey/10 pb-6">
               <h2 className="font-title text-4xl md:text-5xl italic text-white">01. Destination</h2>
+              {stepError && (
+                <p className="text-red-400/80 text-[10px] uppercase tracking-widest mt-4">
+                  {stepError}
+                </p>
+              )}
               {step > 1 && (
                 <button onClick={() => setStep(1)} className="text-[9px] uppercase tracking-widest text-light-grey/40 hover:text-white transition-colors">
                   [ Modifier ]
@@ -161,8 +217,10 @@ export default function CheckoutPage() {
                     <InputField label="Ville" name="city" register={register} error={errors.city?.message} isFocused={focusedField === 'city'} onFocus={() => setFocusedField('city')} onBlur={() => setFocusedField(null)} />
                   </div>
                   <InputField label="Pays" name="country" register={register} error={errors.country?.message} isFocused={focusedField === 'country'} onFocus={() => setFocusedField('country')} onBlur={() => setFocusedField(null)} />
-                  <button type="submit" className="group relative inline-flex items-center gap-6 cursor-pointer w-max mt-4">
-                    <span className="font-title text-2xl tracking-widest text-white group-hover:italic transition-all duration-500">CONTINUER</span>
+                  <button type="submit" disabled={isProcessingStep} className="group relative inline-flex items-center gap-6 cursor-pointer w-max mt-4 disabled:opacity-50">
+                    <span className="font-title text-2xl tracking-widest text-white group-hover:italic transition-all duration-500">
+                      {isProcessingStep ? "SÉCURISATION..." : "CONTINUER"}
+                    </span>
                     <motion.div initial={{ width: "2rem" }} whileHover={{ width: "4rem" }} transition={{ ease: LUXURY_EASE, duration: 0.8 }} className="h-px bg-white" />
                   </button>
                 </motion.form>
@@ -186,10 +244,35 @@ export default function CheckoutPage() {
             <AnimatePresence mode="wait">
               {step === 2 && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.8, ease: LUXURY_EASE }} className="flex flex-col gap-8">
-                  <ShippingOption title="Standard Privilège" delay="3 à 5 jours ouvrés" price="Offert" isActive={shippingMethod === 'standard'} onClick={() => setShippingMethod('standard')} />
-                  <ShippingOption title="Gant Blanc (Express)" delay="24h à 48h ouvrées" price="15,00 €" isActive={shippingMethod === 'express'} onClick={() => setShippingMethod('express')} />
-                  <button onClick={onMethodSubmit} className="group relative inline-flex items-center gap-6 cursor-pointer w-max mt-8">
-                    <span className="font-title text-2xl tracking-widest text-white group-hover:italic transition-all duration-500">VALIDER L'EXPÉDITION</span>
+                  
+                  {/* ⚡️ RENDU DYNAMIQUE DES OPTIONS DE LIVRAISON */}
+                  {shippingOptions.length === 0 ? (
+                    <span className="text-[10px] uppercase tracking-widest text-white/40 animate-pulse py-4">
+                      Recherche des transporteurs sécurisés...
+                    </span>
+                  ) : (
+                    shippingOptions.map((option) => (
+                      <ShippingOption 
+                        key={option.id}
+                        title={option.name} 
+                        delay={option.name.toLowerCase().includes('express') ? '24h à 48h ouvrées' : '3 à 5 jours ouvrés'} 
+                        price={option.amount ? (option.amount + " €" ): "Offert"} 
+                        isActive={selectedShippingId === option.id} 
+                        onClick={() => setSelectedShippingId(option.id)} 
+                      />
+                    ))
+                  )}
+
+                  {stepError && (
+                    <p className="text-red-400/80 text-[10px] uppercase tracking-widest mt-4">
+                      {stepError}
+                    </p>
+                  )}
+                  
+                  <button onClick={onMethodSubmit} disabled={!selectedShippingId || isProcessingStep} className="group relative inline-flex items-center gap-6 cursor-pointer w-max mt-8 disabled:opacity-50">
+                    <span className="font-title text-2xl tracking-widest text-white group-hover:italic transition-all duration-500">
+                      {isProcessingStep ? "SÉCURISATION..." : "VALIDER L'EXPÉDITION"}
+                    </span>
                     <motion.div initial={{ width: "2rem" }} whileHover={{ width: "4rem" }} transition={{ ease: LUXURY_EASE, duration: 0.8 }} className="h-px bg-white" />
                   </button>
                 </motion.div>
@@ -206,7 +289,7 @@ export default function CheckoutPage() {
               {step === 3 && clientSecret && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} transition={{ duration: 0.8, ease: LUXURY_EASE }} className="flex flex-col gap-10">
                   <p className="text-[10px] tracking-widest uppercase text-light-grey/60">Transaction cryptée via Stripe.</p>
-                  
+
                   {/* INJECTION DU PROVIDER STRIPE */}
                   <Elements options={{ clientSecret, appearance: stripeAppearance }} stripe={stripePromise}>
                     <StripeForm totalAmount={total} />
@@ -259,30 +342,37 @@ const StripeForm = ({ totalAmount }: { totalAmount: number }) => {
 
   const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!stripe || !elements) return;
 
     setIsProcessing(true);
     setErrorMessage(null);
 
-    // Simulation de l'appel pour le Mode Design.
-    // En production, tu utiliseras : await stripe.confirmPayment(...)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    console.log("Paiement validé avec succès");
-    
-    setIsProcessing(false);
+    try {
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/checkout/success`,
+        },
+      });
+
+      if (error) {
+        setErrorMessage(error.message || "La transaction a été refusée par l'établissement bancaire.");
+      }
+    } catch (err) {
+      setErrorMessage("Une anomalie réseau a interrompu la transaction sécurisée.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
     <form onSubmit={handleSubmitPayment} className="flex flex-col gap-10">
-      
-      {/* Le composant natif de Stripe, stylisé via l'objet appearance */}
       <PaymentElement options={{ layout: 'accordion' }} />
-      
       {errorMessage && (
         <span className="text-red-400/80 text-[10px] uppercase tracking-widest">{errorMessage}</span>
       )}
-
-      <button 
+      <button
         disabled={!stripe || isProcessing}
         className="w-full bg-white text-dark py-6 mt-4 font-mono text-[10px] uppercase tracking-[0.5em] font-bold hover:bg-light-grey transition-colors duration-500 disabled:opacity-50"
       >

@@ -107,14 +107,14 @@ export const ProductService = {
 
     return {
       id: product.handle || product.id,
-      title: (product.title || "Anonyme").toUpperCase(),
-      year: (product.metadata?.year as string) || "Archive",
+      title: (product.title || "Undefined").toUpperCase(),
+      year: (product.metadata?.year as string) || "Undefined",
       origin: (product.metadata?.origin as string) || "ORA TRIP",
-      material: product.material || "Non spécifié",
-      history: product.description || "Aucune histoire rédigée.",
+      material: product.material || "Undefined",
+      history: product.description || "Undefined",
       value: priceFormatted,
-      imagePath: productImages[0], // L'image principale reste la première
-      images: productImages,       // <--- Le tableau complet pour le slider
+      imagePath: productImages[0], 
+      images: productImages,       
       formats,
       maxAllocation: totalStock,
     };

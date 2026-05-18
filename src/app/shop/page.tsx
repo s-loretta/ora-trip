@@ -118,6 +118,7 @@ const ProductArchive = () => {
     <div 
         ref={containerRef} 
         onScroll={handleScroll}
+        data-lenis-prevent="true"
         className="bg-[#131313] relative h-screen overflow-y-scroll selection:bg-white selection:text-[#131313] no-scrollbar"
     >
       <div className="h-[1000vh] w-px absolute top-0 pointer-events-none opacity-0" />

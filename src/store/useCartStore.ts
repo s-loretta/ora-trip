@@ -1,33 +1,29 @@
 // src/store/useCartStore.ts
-// Migré vers @medusajs/js-sdk (v2) — abandon de medusaClient (v1)
-
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { sdk } from "@/lib/sdk"
 
 export interface CartItem {
-  id: string
-  medusaLineItemId?: string
-  productId: string
+  id: string // ⚡️ L'ID réel du LineItem dans Medusa
   variantId: string
   title: string
-  format: string
-  price: number
+  variantTitle: string
   quantity: number
-  maxStock: number
-  imagePath: string
+  unitPrice: number
+  thumbnail: string
 }
 
 interface CartState {
-  items: CartItem[]
   cartId: string | null
+  items: CartItem[]
   isHydrated: boolean
   isLoading: boolean
 
-  setHydrated: () => void
-  addToCart: (item: CartItem) => Promise<void>
-  removeFromCart: (id: string) => Promise<void>
-  updateQuantity: (id: string, quantity: number) => Promise<void>
+  setHydrated: (state: boolean) => void
+  initCart: () => Promise<void>
+  addToCart: (variantId: string, quantity: number) => Promise<void>
+  updateQuantity: (lineItemId: string, quantity: number) => Promise<void>
+  removeFromCart: (lineItemId: string) => Promise<void>
   clearCart: () => void
 
   getCartTotal: () => number
@@ -37,154 +33,113 @@ interface CartState {
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
-      items: [],
       cartId: null,
+      items: [],
       isHydrated: false,
       isLoading: false,
 
-      setHydrated: () => set({ isHydrated: true }),
+      setHydrated: (state) => set({ isHydrated: state }),
 
-      // ---------------------------------------------------------
-      // 1. AJOUTER AU PANIER (Optimistic UI)
-      // ---------------------------------------------------------
-      addToCart: async (newItem) => {
-        const previousItems = get().items
-        const existingIndex = previousItems.findIndex((i) => i.id === newItem.id)
-        let updatedItems = [...previousItems]
-
-        if (existingIndex !== -1) {
-          updatedItems[existingIndex] = {
-            ...updatedItems[existingIndex],
-            quantity: updatedItems[existingIndex].quantity + newItem.quantity,
-          }
-        } else {
-          updatedItems = [...updatedItems, newItem]
-        }
-
-        // Mise à jour visuelle instantanée avant la réponse backend
-        set({ items: updatedItems, isLoading: true })
+      // 🔄 1. SYNCHRONISATION AVEC MEDUSA
+      initCart: async () => {
+        const { cartId } = get();
+        if (!cartId) return;
 
         try {
-          let currentCartId = get().cartId
+          set({ isLoading: true });
+          const { cart } = await sdk.store.cart.retrieve(cartId, {
+            fields: "+items.*,+items.variant.*,+items.variant.product.*"
+          });
+          
+          // On formate la réponse de Medusa pour que ton UI Front-end lise facilement
+          const formattedItems = (cart.items || []).map((i: any) => ({
+            id: i.id,
+            variantId: i.variant_id,
+            title: i.title,
+            variantTitle: i.variant?.title || '',
+            quantity: i.quantity,
+            unitPrice: i.unit_price || 0,
+            thumbnail: i.thumbnail || i.variant?.product?.thumbnail || '',
+          }));
+
+          set({ items: formattedItems, isLoading: false });
+        } catch (error) {
+          console.warn("Panier Medusa introuvable ou converti en commande. Réinitialisation.");
+          set({ cartId: null, items: [], isLoading: false });
+        }
+      },
+
+      // 🛒 2. AJOUTER AU PANIER
+      addToCart: async (variantId: string, quantity: number) => {
+        try {
+          set({ isLoading: true });
+          let { cartId } = get();
 
           // Création du panier Medusa si inexistant
-          if (!currentCartId) {
-            const { cart } = await sdk.store.cart.create({})
-            currentCartId = cart.id
-            set({ cartId: currentCartId })
+          if (!cartId) {
+            const { cart } = await sdk.store.cart.create({});
+            cartId = cart.id;
+            set({ cartId });
           }
 
-          if (existingIndex !== -1) {
-            // Mise à jour d'un article existant
-            const lineItemId = previousItems[existingIndex].medusaLineItemId
-            if (lineItemId) {
-              await sdk.store.cart.updateLineItem(
-                currentCartId,
-                lineItemId,
-                { quantity: updatedItems[existingIndex].quantity }
-              )
-            }
-          } else {
-            // Ajout d'un nouvel article
-            const { cart } = await sdk.store.cart.createLineItem(currentCartId, {
-              variant_id: newItem.variantId,
-              quantity: newItem.quantity,
-            })
+          // Ajout directement sur le serveur
+          await sdk.store.cart.createLineItem(cartId, {
+            variant_id: variantId,
+            quantity: quantity,
+          });
 
-            // Récupération et stockage de l'ID Medusa du line item créé
-            const newLineItem = cart.items?.find(
-              (i) => i.variant_id === newItem.variantId
-            )
-            if (newLineItem) {
-              set((state) => ({
-                items: state.items.map((item) =>
-                  item.id === newItem.id
-                    ? { ...item, medusaLineItemId: newLineItem.id }
-                    : item
-                ),
-              }))
-            }
-          }
-
-          set({ isLoading: false })
+          // Rafraîchissement automatique
+          await get().initCart();
         } catch (error) {
-          console.error("[Cart] Échec de l'ajout, rollback :", error)
-          set({ items: previousItems, isLoading: false })
+          console.error("Erreur d'ajout au panier:", error);
+          set({ isLoading: false });
         }
       },
 
-      // ---------------------------------------------------------
-      // 2. RETIRER DU PANIER (Optimistic UI)
-      // ---------------------------------------------------------
-      removeFromCart: async (id) => {
-        const previousItems = get().items
-        const itemToRemove = previousItems.find((i) => i.id === id)
-
-        set({
-          items: previousItems.filter((item) => item.id !== id),
-          isLoading: true,
-        })
+      // 🔄 3. METTRE À JOUR LA QUANTITÉ
+      updateQuantity: async (lineItemId: string, quantity: number) => {
+        const { cartId } = get();
+        if (!cartId) return;
 
         try {
-          const currentCartId = get().cartId
-          if (currentCartId && itemToRemove?.medusaLineItemId) {
-            await sdk.store.cart.deleteLineItem(
-              currentCartId,
-              itemToRemove.medusaLineItemId
-            )
-          }
-          set({ isLoading: false })
+          set({ isLoading: true });
+          await sdk.store.cart.updateLineItem(cartId, lineItemId, { quantity });
+          await get().initCart();
         } catch (error) {
-          console.error("[Cart] Échec de la suppression, rollback :", error)
-          set({ items: previousItems, isLoading: false })
+          console.error("Erreur de mise à jour:", error);
+          set({ isLoading: false });
         }
       },
 
-      // ---------------------------------------------------------
-      // 3. METTRE À JOUR LA QUANTITÉ (Optimistic UI)
-      // ---------------------------------------------------------
-      updateQuantity: async (id, quantity) => {
-        const previousItems = get().items
-        const targetItem = previousItems.find((i) => i.id === id)
-        if (!targetItem) return
-
-        const newQuantity = Math.min(Math.max(1, quantity), targetItem.maxStock)
-
-        set({
-          items: previousItems.map((item) =>
-            item.id === id ? { ...item, quantity: newQuantity } : item
-          ),
-          isLoading: true,
-        })
+      // 🗑️ 4. RETIRER DU PANIER
+      removeFromCart: async (lineItemId: string) => {
+        const { cartId } = get();
+        if (!cartId) return;
 
         try {
-          const currentCartId = get().cartId
-          if (currentCartId && targetItem.medusaLineItemId) {
-            await sdk.store.cart.updateLineItem(
-              currentCartId,
-              targetItem.medusaLineItemId,
-              { quantity: newQuantity }
-            )
-          }
-          set({ isLoading: false })
+          set({ isLoading: true });
+          await sdk.store.cart.deleteLineItem(cartId, lineItemId);
+          await get().initCart();
         } catch (error) {
-          console.error("[Cart] Échec de la mise à jour, rollback :", error)
-          set({ items: previousItems, isLoading: false })
+          console.error("Erreur de suppression:", error);
+          set({ isLoading: false });
         }
       },
 
       clearCart: () => set({ items: [], cartId: null }),
 
-      getCartTotal: () =>
-        get().items.reduce((total, item) => total + item.price * item.quantity, 0),
+      getCartTotal: () => get().items.reduce((total, item) => total + item.unitPrice * item.quantity, 0),
 
-      getItemCount: () =>
-        get().items.reduce((count, item) => count + item.quantity, 0),
+      getItemCount: () => get().items.reduce((count, item) => count + item.quantity, 0),
     }),
     {
       name: "ora-cart-storage",
+      partialize: (state) => ({ cartId: state.cartId }), // ⚡️ MAGIE : Seul l'ID est stocké en local !
       onRehydrateStorage: () => (state) => {
-        if (state) state.setHydrated()
+        if (state) {
+          state.setHydrated(true);
+          state.initCart(); // Au lancement, on télécharge le panier à jour depuis Medusa
+        }
       },
     }
   )

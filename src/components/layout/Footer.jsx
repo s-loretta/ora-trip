@@ -17,14 +17,17 @@ const Footer = () => {
         <ul className="flex flex-col gap-3">
           <span className="font-title text-white mb-2 tracking-widest">SUPPORT</span>
           <Link href="contact"><li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>Contactez-nous</li></Link>
-          <Link href="faq"><li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>FAQ</li></Link>
-          <Link href="suivi-commande"><li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>Suivi de commande</li></Link>
-
+        
         </ul>
 
         <ul className="flex flex-col gap-3">
           <span className="font-title text-white mb-2 tracking-widest">SUIVEZ-NOUS</span>
-          <li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>Instagram</li>
+          <a
+            href="https://www.instagram.com/oratripfr"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center"
+          >  <li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>Instagram</li></a>
           <li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>Tiktok</li>
           <li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>Youtube</li>
           <li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>Newsletter</li>
@@ -32,16 +35,17 @@ const Footer = () => {
 
         <ul className="flex flex-col gap-3">
           <span className="font-title text-white mb-2 tracking-widest">INFORMATIONS</span>
-          <li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>CGV</li>
-          <li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>Confidentialité</li>
-          <li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>Cookies</li>
+          <Link href="/cgv">   <li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>CGV</li> </Link>
+          <Link href="/confidentialité"></Link>    <li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>Confidentialité</li>
+          <Link href="/mention-legales"></Link>    <li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>Mention Legal</li>
+          <Link href="/retours"></Link>    <li className='font-mono text-xs text-gray-500 hover:text-white cursor-pointer transition-colors'>Retour</li>
         </ul>
 
       </div>
 
       {/* Copyright */}
       <div className='mt-8 pt-4 border-t border-white/5 text-center font-mono text-[10px] tracking-widest opacity-40 uppercase'>
-        © ORA TRIP — 2026 — ALL RIGHTS RESERVED
+        © ORA TRIP — 2026 — ALL RIGHTS RESERVED - PAR LORETTA SAMBA
       </div>
     </footer>
   )

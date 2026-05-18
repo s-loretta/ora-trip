@@ -2,10 +2,10 @@
 
 import React from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { useRouter } from 'next/navigation'; // <-- 1. AJOUT DU ROUTER
+import { useRouter } from 'next/navigation'; 
 import { useUIStore } from '@/store/useUIStore';
 import { useCartStore } from '@/store/useCartStore';
-import { formatPrice } from '@/utils/formatPrice';
+
 
 // --- CONSTANTES D'ANIMATION ---
 const premiumEase: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -23,7 +23,7 @@ const drawerVariants: Variants = {
 };
 
 export default function CartDrawer() {
-  const router = useRouter(); // <-- 2. INSTANCIATION DU ROUTER
+  const router = useRouter(); 
   const { isCartOpen, closeCart } = useUIStore();
   
   // Récupération des données et actions du panier
@@ -93,7 +93,7 @@ export default function CartDrawer() {
                   <div className="flex flex-col gap-10">
                     {items.map((item) => (
                       <motion.div
-                        key={item.id} // ID unique composé de (ID_Taille)
+                        key={item.id} 
                         layout
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -102,8 +102,9 @@ export default function CartDrawer() {
                       >
                         {/* MINIATURE ÉDITORIALE */}
                         <div className="w-24 aspect-[3/4] bg-[#1a1a1a] border border-light-grey/5 flex items-center justify-center overflow-hidden">
+                           {/* ⚡️ CORRECTION : imagePath devient thumbnail */}
                            <img 
-                             src={item.imagePath} 
+                             src={item.thumbnail} 
                              alt={item.title} 
                              className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000" 
                            />
@@ -114,13 +115,14 @@ export default function CartDrawer() {
                           <div className="flex justify-between items-start">
                             <div>
                               <h4 className="font-title text-2xl text-white italic mb-1">{item.title}</h4>
+                              {/* ⚡️ CORRECTION : format devient variantTitle */}
                               <p className="font-mono text-[9px] tracking-widest text-light-grey/40 uppercase">
-                                Taille {item.format}
+                                Taille {item.variantTitle}
                               </p>
                             </div>
-                            {/* PRIX DE L'ARTICLE FORMATÉ */}
+                            {/* ⚡️ CORRECTION : price devient unitPrice */}
                             <span className="font-mono text-xs text-white">
-                              {formatPrice(item.price)} 
+                              {item.unitPrice * item.quantity + " €"} 
                             </span>
                           </div>
 
@@ -158,23 +160,11 @@ export default function CartDrawer() {
 
                               <button 
                                 onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                disabled={item.quantity >= item.maxStock}
-                                className={`transition-colors ${item.quantity >= item.maxStock ? "opacity-10 cursor-not-allowed" : "hover:text-white cursor-pointer"}`}
+                                className="transition-colors hover:text-white cursor-pointer"
                               >
                                 +
                               </button>
                             </div>
-                            
-                            {/* Optionnel : Micro-label si le stock est atteint */}
-                            {item.quantity >= item.maxStock && (
-                              <motion.span 
-                                initial={{ opacity: 0 }} 
-                                animate={{ opacity: 1 }} 
-                                className="absolute -bottom-4 right-0 font-mono text-[7px] uppercase text-light-grey/20"
-                              >
-                                Limite atteinte
-                              </motion.span>
-                            )}
                           </div>
                         </div>
                       </motion.div>
@@ -189,7 +179,7 @@ export default function CartDrawer() {
               <div className="flex justify-between items-end font-mono">
                 <div className="flex flex-col gap-1">
                    <span className="text-[10px] uppercase tracking-[0.3em] text-light-grey/40">Total de la sélection</span>
-                   <span className="text-[8px] text-light-grey/20 uppercase">Expédition prioritaire incluse</span>
+                   
                 </div>
                 {/* PRIX TOTAL ANIMÉ */}
                 <div className="overflow-hidden h-8">
@@ -201,13 +191,13 @@ export default function CartDrawer() {
                       exit={{ y: -20, opacity: 0 }}
                       className="block text-2xl text-white font-mono"
                     >
-                      {formatPrice(rawSubtotal)}
+                      {rawSubtotal + " €"}
                     </motion.span>
                   </AnimatePresence>
                 </div>
               </div>
 
-              {/* BOUTON MODIFIÉ POUR LA REDIRECTION */}
+              {/* BOUTON DE REDIRECTION */}
               <button 
                 onClick={handleProceedToCheckout}
                 className="w-full bg-white text-dark py-6 font-mono text-[10px] uppercase tracking-[0.5em] font-bold hover:bg-light-grey transition-colors duration-500 disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer"

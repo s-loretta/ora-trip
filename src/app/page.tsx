@@ -10,7 +10,7 @@ export default function Home() {
       {/* 1. L'image en arrière-plan */}
       <div className="absolute inset-0 z-0">
         <img 
-          src="/image1.jpg" 
+          src="/image2.jpg" 
           alt="Background Maillot" 
           className="h-full w-full object-cover object-top blur-[1px] opacity-80" 
         />

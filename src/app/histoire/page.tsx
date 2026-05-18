@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
+import Image from 'next/image';
 
 const Page = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -10,8 +11,6 @@ const Page = () => {
   const chapter3Ref = useRef<HTMLElement>(null);
   const chapter4Ref = useRef<HTMLElement>(null);
   const panoramaRef = useRef<HTMLElement>(null);
-
-
 
   // --- ÉTAT NAVIGATION LATERALE ---
   const [activeSection, setActiveSection] = useState(0);
@@ -145,9 +144,16 @@ const Page = () => {
           >
             <motion.div 
                 style={{ scale: useTransform(smoothScroll1, [0, 1], [1.2, 1]) }}
-                className="absolute inset-0 w-full h-full flex items-center justify-center italic font-mono text-light-grey/10 text-xs uppercase"
+                className="absolute inset-0 w-full h-full"
             >
-                Espace Image 
+                <Image 
+                  src="/histoire/01.jpg" 
+                  alt="La naissance d'une quête" 
+                  fill 
+                  className="object-cover opacity-80" 
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  priority
+                />
             </motion.div>
           </motion.div>
 
@@ -200,11 +206,21 @@ const Page = () => {
         </div>
       </section>
 
-
-
       {/* --- PANORAMA --- */}
       <section ref={panoramaRef} className="w-full h-screen px-6 md:px-10 py-10">
-        <motion.div style={{ clipPath: clipPath }} className="w-full h-full bg-light-grey/[0.03] border border-light-grey/10 flex items-center justify-center overflow-hidden italic font-mono text-light-grey/30 text-xs tracking-[0.5em] uppercase">Le design est un langage</motion.div>
+        <motion.div 
+          style={{ clipPath: clipPath }} 
+          className="relative w-full h-full bg-light-grey/[0.03] border border-light-grey/10 overflow-hidden"
+        >
+          {/* ⚡️ IMAGE PANORAMIQUE AJOUTÉE ICI */}
+          <Image 
+            src="/histoire/04.jpg" 
+            alt="Le design est un langage" 
+            fill 
+            className="object-cover opacity-90" 
+            sizes="100vw"
+          />
+        </motion.div>
       </section>
 
       {/* --- CHAPITRE 02 --- */}
@@ -266,9 +282,13 @@ const Page = () => {
             style={{ y: yImage2 }} 
             className="relative aspect-[3/4] w-full bg-light-grey/5 border border-light-grey/10 flex items-center justify-center overflow-hidden order-1 md:order-2 md:sticky md:top-24"
           >
-            <div className="absolute italic font-mono text-light-grey/10 text-xs uppercase tracking-widest text-center px-10">
-              Espace Image : <br /> ORA TRIP Culture & Vision
-            </div>
+            <Image 
+              src="/histoire/2.jpg" 
+              alt="Culture & Vision ORA TRIP" 
+              fill 
+              className="object-cover opacity-80" 
+              sizes="(max-width: 768px) 100vw, 50vw"
+            />
           </motion.div>
         </div>
       </section>
@@ -324,7 +344,17 @@ const Page = () => {
                 <p className="text-lg leading-relaxed opacity-80">
                   Chez ORA TRIP, nous croyons qu'un maillot peut être bien plus qu'un vêtement sportif : c'est une <span className="text-white border-b border-white/20">toile d'expression</span>, un témoignage vivant de qui nous sommes, d'où nous venons, et de ce que nous rêvons de devenir.
                 </p>
-                <div className="aspect-square w-32 bg-light-grey/5 border border-light-grey/10 self-center md:self-start flex items-center justify-center italic text-[10px] text-light-grey/20">Symbolique</div>
+                
+                {/* ⚡️ IMAGE AGRANDIE ICI */}
+                <div className="relative aspect-square w-64 md:w-80 bg-light-grey/5 border border-light-grey/10 self-center md:self-start flex items-center justify-center overflow-hidden mt-4">
+                  <Image 
+                    src="/histoire/03.jpg" 
+                    alt="Symbolique ORA TRIP" 
+                    fill 
+                    className="object-cover opacity-80" 
+                    sizes="(max-width: 768px) 256px, 320px"
+                  />
+                </div>
              </div>
              <div className="flex flex-col gap-8 pt-12 md:pt-24">
                 <p className="text-lg leading-relaxed opacity-80">

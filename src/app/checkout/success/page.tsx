@@ -38,42 +38,24 @@ const lineVariants: Variants = {
 
 // 1. NOUVEAU COMPOSANT : On isole tout le contenu qui lit l'URL
 function SuccessContent() {
-  const { clearCart, cartId: localCartId } = useCartStore(); 
+  const { clearCart } = useCartStore(); 
   const searchParams = useSearchParams();
-  const paymentIntent = searchParams.get('payment_intent');
   
-  // États pour gérer la validation Medusa
+  // ✅ On récupère exactement ce que la route API nous a envoyé (ex: ORA-007)
+  const orderRef = searchParams.get("order_ref");
+  
   const [isProcessing, setIsProcessing] = useState(true);
-  const [orderId, setOrderId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fonction asynchrone pour valider la commande chez Medusa
-    const finalizeOrder = async () => {
-      try {
-        const activeCartId = searchParams.get('cart_id') || localCartId;
+    clearCart();
+    // On laisse une demi-seconde de chargement artificiel pour l'animation luxe
+    setTimeout(() => {
+      setIsProcessing(false);
+    }, 800);
+  }, [clearCart]);
 
-        if (activeCartId) {
-          // L'étape cruciale : Medusa transforme le panier en vraie commande
-          const response = await sdk.store.cart.complete(activeCartId);
-          
-          if (response.type === "order") {
-            setOrderId(response.order.display_id?.toString() || response.order.id);
-          }
-        }
-      } catch (error) {
-        console.error("Erreur lors de la finalisation de l'archive :", error);
-      } finally {
-        setIsProcessing(false);
-        clearCart();
-      }
-    };
-
-    finalizeOrder();
-  }, [localCartId, searchParams, clearCart]);
-
-  const finalOrderNumber = orderId 
-    ? `ORA-${orderId}` 
-    : (paymentIntent ? `ORA-${paymentIntent.slice(-8).toUpperCase()}` : "ORA-XXXX");
+  // ✅ On utilise directement la référence de l'URL
+  const finalOrderNumber = orderRef || "ORA-XXXX";
 
   return (
     <main className="min-h-screen bg-dark text-light-grey selection:bg-white selection:text-dark px-6 md:px-20 flex items-center justify-center overflow-hidden font-mono">
@@ -120,7 +102,7 @@ function SuccessContent() {
           )}
 
           <motion.div variants={itemVariants} className="flex flex-col gap-2">
-            <span className="text-[9px] tracking-[0.3em] uppercase text-light-grey/30">Numéro d'Archive</span>
+            <span className="text-[9px] tracking-[0.3em] uppercase text-light-grey/30">Numéro de commande</span>
             <span className="text-xl text-white tracking-widest">
               {isProcessing ? "GÉNÉRATION..." : finalOrderNumber}
             </span>
@@ -129,7 +111,7 @@ function SuccessContent() {
           <motion.div variants={itemVariants} className="flex flex-col gap-2">
             <span className="text-[9px] tracking-[0.3em] uppercase text-light-grey/30">Statut</span>
             <div className="flex items-center justify-center gap-3">
-               <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isProcessing ? 'bg-orange-400' : 'bg-green-500'}`} />
+               <span className={`w-1.5 h-1.5 rounded-full ${isProcessing ? 'bg-orange-400 animate-pulse' : 'bg-white'}`} />
                <span className="text-[10px] text-white uppercase tracking-widest">
                  {isProcessing ? "Synchronisation Medusa" : "Paiement Sécurisé & Confirmé"}
                </span>
@@ -146,7 +128,7 @@ function SuccessContent() {
         <motion.div variants={itemVariants} className="flex flex-col md:flex-row gap-10 mt-6">
           <Link href="/shop" className="group relative py-2 overflow-hidden pointer-events-auto">
             <span className="text-[10px] tracking-[0.4em] uppercase text-white/60 group-hover:text-white transition-colors">
-              [ Retourner à l'Archive ]
+              [ Retourner au shop ]
             </span>
             <div className="absolute bottom-0 left-0 w-full h-px bg-white/20 scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
           </Link>
@@ -161,7 +143,7 @@ function SuccessContent() {
 
         {/* --- FOOTER DISCRET --- */}
         <motion.span variants={itemVariants} className="text-[8px] tracking-[0.5em] text-white/10 uppercase mt-20">
-          ORA TRIP — TOUS DROITS RÉSERVÉS 2026- PAR SAMBA LORETTA
+          ORA TRIP — TOUS DROITS RÉSERVÉS 2026 - PAR SAMBA LORETTA
         </motion.span>
       </motion.div>
     </main>

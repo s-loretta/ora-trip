@@ -4,6 +4,8 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/CartDrawer"; // Injection du composant d'inventaire
 import NotificationModal from "@/components/NotificationModal";
+import LenisProvider from '@/components/LenisProvider';
+
 // --- CONFIGURATION TYPOGRAPHIQUE (ORA TRIP ADN) ---
 
 // Font Title (Serif/Italique pour les grands titres)
@@ -22,7 +24,7 @@ const ibmPlexMono = localFont({
 
 // --- METADATA GLOBALES ---
 export const metadata = {
-  title: "ORA TRIP | L'Archive Culturelle",
+  title: "ORA TRIP ",
   description: "Des maillots de football transformés en objets culturels et intemporels.",
 };
 
@@ -32,9 +34,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr" className="scroll-smooth">
-      {/* 
-        APPLICATION STRICTE DU DESIGN SYSTEM :
+    // 🚨 ATTENTION : Suppression de "scroll-smooth" pour laisser Lenis gérer la physique
+    <html lang="fr">
+      {/* APPLICATION STRICTE DU DESIGN SYSTEM :
         - bg-dark (#131313) et text-light-grey (#C3C3C3) obligatoires à la racine.
         - selection:bg-white selection:text-dark pour une interaction texte premium.
       */}
@@ -48,18 +50,21 @@ export default function RootLayout({
           flex flex-col min-h-screen
         `}
       >
-        <Navbar />
-        <NotificationModal />
-        
-        {/* LE TIROIR GLOBAL : Reste invisible et inactif jusqu'à son déclenchement */}
-        <CartDrawer />
-        
-        {/* CONTENU DE LA PAGE : On utilise flex-grow pour pousser le footer vers le bas */}
-        <main className="flex-grow w-full">
-          {children}
-        </main>
-        
-        <Footer />
+        {/* ⚡️ LE MOTEUR LENIS ENVELOPPE TOUTE L'APPLICATION */}
+        <LenisProvider>
+          <Navbar />
+          <NotificationModal />
+          
+          {/* LE TIROIR GLOBAL : Reste invisible et inactif jusqu'à son déclenchement */}
+          <CartDrawer />
+          
+          {/* CONTENU DE LA PAGE : On utilise flex-grow pour pousser le footer vers le bas */}
+          <main className="flex-grow w-full">
+            {children}
+          </main>
+          
+          <Footer />
+        </LenisProvider>
       </body>
     </html>
   );

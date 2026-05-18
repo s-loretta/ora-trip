@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import emailjs from '@emailjs/browser'; // Ajout de l'import EmailJS
+import Link from 'next/link';
 
 // 1. Définition des types pour le formulaire
 interface ContactFormData {
@@ -105,15 +106,24 @@ const ContactPage = () => {
             <div className="flex flex-col gap-6 pt-8 border-t border-light-grey/10">
               <div className="flex flex-col gap-1 group cursor-pointer">
                 <span className="text-[10px] tracking-[0.4em] uppercase text-white/40">Email</span>
-                <span className="text-white tracking-widest group-hover:translate-x-2 transition-transform duration-300">
-                  contact@oratrip.com
-                </span>
+                <a href="mailto:contact@oratrip.fr" className="group">
+  <span className="text-white tracking-widest transition-transform duration-300 inline-block group-hover:translate-x-2">
+    contact@oratrip.fr
+  </span>
+</a>
               </div>
               <div className="flex flex-col gap-1 group cursor-pointer">
                 <span className="text-[10px] tracking-[0.4em] uppercase text-white/40">Instagram</span>
-                <span className="text-white tracking-widest group-hover:translate-x-2 transition-transform duration-300">
-                  @Oratripfr
-                </span>
+              <a 
+  href="https://www.instagram.com/oratripfr" 
+  target="_blank" 
+  rel="noopener noreferrer"
+  className="group flex items-center"
+>
+  <span className="text-white tracking-widest transition-transform duration-300 group-hover:translate-x-2">
+    @oratripfr
+  </span>
+</a>
               </div>
               
             </div>

@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUserStore } from '@/store/useUserStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
+
 // --- 1. SCHÉMA DE VALIDATION ZOD ---
 const loginSchema = z.object({
   email: z.string().email("Format d'email invalide."),
@@ -42,14 +43,20 @@ const shakeVariants = {
   }
 };
 
-// --- 3. COMPOSANT FORMULAIRE (Isolé pour utiliser useSearchParams proprement) ---
+// --- 3. COMPOSANT FORMULAIRE ---
 const LoginFormContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const isRegistered = searchParams.get('registered') === 'true';
+
+  // ✅ Lit le paramètre ?redirect= pour savoir où renvoyer l'utilisateur après connexion.
+  // Par défaut /compte si aucun redirect n'est spécifié.
+  const redirectTo = searchParams.get('redirect') || '/compte';
+
   const showNotification = useNotificationStore((state) => state.showNotification);
   const [focusedField, setFocusedField] = useState<keyof LoginFormData | null>(null);
-  const { register: registerUser, isAuthenticated, isLoading } = useUserStore();
+  const { isAuthenticated, isLoading } = useUserStore();
   const login = useUserStore((state) => state.login);
   const storeError = useUserStore((state) => state.error);
   const clearError = useUserStore((state) => state.clearError);
@@ -70,37 +77,34 @@ const LoginFormContent = () => {
     clearError();
   }, [clearError]);
 
+  // ✅ Si l'utilisateur est déjà connecté (session existante),
+  // on le redirige vers redirectTo et non plus systématiquement vers /compte.
   useEffect(() => {
-    // Si le chargement initial de session est terminé ET que l'utilisateur est connecté
     if (!isLoading && isAuthenticated) {
-      // Redirection immédiate et silencieuse vers l'archive
-      router.push('/compte');
+      router.push(redirectTo);
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, redirectTo]);
 
-  // Optionnel : Éviter le "flash" de la page d'inscription pendant la vérification
   if (isLoading || isAuthenticated) {
     return (
-      <div className="min-h-screen bg-dark flex items-center justify-center">
-         {/* Un loader minimaliste pour patienter le temps de la redirection */}
-      </div>
+      <div className="min-h-screen bg-dark flex items-center justify-center" />
     );
   }
 
   const onSubmit = async (data: LoginFormData) => {
-  if (data.address_secondary) return; // Honeypot trap
-  
-  try {
-    await login(data.email, data.password);
-    
-    // 2. Déclenche le message de succès !
-    showNotification("Connexion réussie. Bienvenue.");
-    
-    router.push('/compte'); 
-  } catch (err) {
-    console.error("Tentative d'accès échouée.");
-  }
-};
+    if (data.address_secondary) return; // Honeypot trap
+
+    try {
+      await login(data.email, data.password);
+
+      showNotification("Connexion réussie. Bienvenue.");
+
+      // ✅ Redirige vers la destination voulue (ex: /checkout si venu du checkout)
+      router.push(redirectTo);
+    } catch (err) {
+      console.error("Tentative d'accès échouée.");
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-20 lg:gap-32 items-center">
@@ -116,7 +120,12 @@ const LoginFormContent = () => {
             <span className="italic opacity-80 text-light-grey">CONNECTEZ-VOUS.</span>
           </motion.h1>
           <motion.div variants={itemVariants} className="pt-6 border-t border-light-grey/10">
-            <Link href="/inscription" className="text-[10px] tracking-[0.3em] uppercase text-white/60 hover:text-white transition-colors duration-500 hover:tracking-[0.4em]">
+            <Link
+              // ✅ Propage le ?redirect= vers /inscription aussi,
+              // au cas où l'utilisateur n'a pas encore de compte.
+              href={`/inscription${redirectTo !== '/compte' ? `?redirect=${redirectTo}` : ''}`}
+              className="text-[10px] tracking-[0.3em] uppercase text-white/60 hover:text-white transition-colors duration-500 hover:tracking-[0.4em]"
+            >
               [ Pas encore inscrit ? Inscrivez-vous ]
             </Link>
           </motion.div>
@@ -260,11 +269,10 @@ const LoginFormContent = () => {
   );
 };
 
-// --- 4. COMPOSANT PAGE PRINCIPAL (Wrap avec Suspense) ---
+// --- 4. COMPOSANT PAGE PRINCIPAL ---
 const LoginPage = () => {
   return (
     <div className="min-h-screen bg-dark text-light-grey selection:bg-light-grey selection:text-dark px-6 md:px-20 py-32 flex items-center justify-center font-mono">
-      {/* On wrap le contenu qui utilise useSearchParams dans un Suspense */}
       <Suspense fallback={<div className="text-[10px] tracking-widest text-white/50 uppercase">Chargement de l'archive...</div>}>
         <LoginFormContent />
       </Suspense>

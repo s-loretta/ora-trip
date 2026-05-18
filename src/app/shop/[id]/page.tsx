@@ -55,6 +55,19 @@ export default function PiecePage({ params }: PageProps) {
     if (piece && piece.formats.length > 0) setSelectedFormat(piece.formats[0]);
   }, [piece]);
 
+  // ⚡️ NOUVEAU : AUTOPLAY DU SLIDER
+  useEffect(() => {
+    // On ne lance l'autoplay que si la pièce existe et possède plus d'une image
+    if (!piece || piece.images.length <= 1) return;
+
+    const intervalId = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % piece.images.length);
+    }, 3500); // 4000ms = 4 secondes. Tu peux ajuster ce rythme.
+
+    // Nettoyage de l'intervalle si le composant est démonté
+    return () => clearInterval(intervalId);
+  }, [piece]);
+
   const { scrollYProgress } = useScroll();
 
   const imageScale = useTransform(scrollYProgress, [0, 1], [1, 1.05]);
@@ -73,7 +86,7 @@ export default function PiecePage({ params }: PageProps) {
   // Fetch terminé et produit introuvable → vraie 404
   if (!piece) notFound();
 
-  // --- LOGIQUE DU SLIDER ---
+  // --- LOGIQUE MANUELLE DU SLIDER ---
   const handleNextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % piece.images.length);
   };
@@ -100,25 +113,12 @@ export default function PiecePage({ params }: PageProps) {
     }
   };
 
-  const handleAcquisition = () => {
+ const handleAcquisition = async () => {
     if (!piece || !selectedFormat) return;
 
-    const cartItemId = `${piece.id}_${selectedFormat.name}`;
-    const priceAsNumber = typeof piece.value === "string"
-      ? parseFloat(piece.value.replace(/[^0-9.]/g, ""))
-      : piece.value;
-
-    addToCart({
-      id: cartItemId,
-      productId: piece.id,
-      variantId: selectedFormat.id,
-      title: piece.title,
-      format: selectedFormat.name,
-      price: priceAsNumber,
-      quantity: allocation,
-      maxStock: selectedFormat.stock,
-      imagePath: piece.imagePath,
-    });
+    // ⚡️ ARCHITECTURE V2 : Plus besoin de passer l'image, le prix, etc. 
+    // On donne juste l'ID et la quantité à Medusa !
+    await addToCart(selectedFormat.id, allocation);
 
     openCart();
   };

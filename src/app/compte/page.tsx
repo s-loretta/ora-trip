@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/store/useUserStore';
-// ✅ NOUVEAU : On utilise le SDK officiel (v2)
 import { sdk } from '@/lib/sdk'; 
 
 const LUXURY_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -27,15 +26,6 @@ const itemVariants: Variants = {
 
 type TabType = 'aperçu' | 'commandes' | 'retours' | 'adresses' | 'paramètres';
 const TABS: TabType[] = ['aperçu', 'commandes', 'retours', 'adresses', 'paramètres'];
-
-// --- UTILITAIRES DE FORMATAGE ---
-const formatPrice = (amount: number, currencyCode: string = 'eur') => {
-  if (!amount) return "0,00 €";
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: currencyCode.toUpperCase(),
-  }).format(amount / 100); 
-};
 
 const formatDate = (dateString: string) => {
   return new Intl.DateTimeFormat('fr-FR', {
@@ -60,23 +50,27 @@ export default function AccountDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isFetchingData, setIsFetchingData] = useState(true);
 
-  // Sécurité et Récupération des données via SDK v2
-useEffect(() => {
-    // 1. Redirection si l'utilisateur n'est pas connecté
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+
+  // ⚡️ NOUVEAUX ÉTATS POUR LA GESTION DES ADRESSES
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<any | null>(null);
+
+  useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/connexion');
       return;
     }
 
-    // 2. On empêche le re-fetch inutile causé par la déconnexion
     if (isAuthenticated && isFetchingData) {
       const fetchCustomerData = async () => {
         try {
-          const { orders: medusaOrders } = await sdk.store.order.list();
+          const { orders: medusaOrders } = await sdk.store.order.list({
+            fields: "+items.*,+items.variant.*,+items.variant.product.*"
+          });
+          
           setOrders(medusaOrders || []);
         } catch (error: any) {
-          // ⚠️ CRUCIAL : On utilise console.warn et on filtre l'erreur 401 
-          // pour que Next.js Turbopack ne déclenche plus l'écran rouge
           if (error?.status !== 401 && error?.message !== 'Unauthorized') {
             console.warn("Information : Impossible de récupérer les commandes.", error.message);
           }
@@ -94,6 +88,32 @@ useEffect(() => {
     router.push('/'); 
   };
 
+  const handleDeleteAccount = async () => {
+    try {
+      await logout();
+      router.push('/'); 
+    } catch (error) {
+      console.error("Erreur lors de la suppression du compte :", error);
+    }
+  };
+
+  // 🗑️ GESTION DE LA SUPPRESSION D'ADRESSE
+  const handleDeleteAddress = async (addressId: string) => {
+    if (!confirm("Voulez-vous retirer cette adresse de votre carnet ?")) return;
+    try {
+      await sdk.store.customer.deleteAddress(addressId);
+      window.location.reload(); // Rechargement robuste pour rafraîchir le profil Zustand
+    } catch (error) {
+      console.error("Erreur lors de la suppression de l'adresse :", error);
+    }
+  };
+
+  const sortedOrders = [...orders].sort((a, b) => (b.display_id || 0) - (a.display_id || 0));
+  const lastOrder = sortedOrders.length > 0 ? sortedOrders[0] : null;
+
+  const lastOrderItemsCount = lastOrder?.items?.reduce((acc: number, item: any) => acc + item.quantity, 0) || 0;
+  const lastOrderItemsText = lastOrderItemsCount > 1 ? 'articles' : 'article';
+
   if (isLoading || isFetchingData || !customer) {
     return (
       <div className="min-h-screen bg-dark flex items-center justify-center">
@@ -102,16 +122,28 @@ useEffect(() => {
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           className="font-mono text-[10px] tracking-[0.5em] text-white uppercase"
         >
-          Synchronisation de l'archive...
+          Accès au compte client...
         </motion.span>
       </div>
     );
   }
 
-  const lastOrder = orders.length > 0 ? orders[0] : null;
-
   return (
     <div className="min-h-screen bg-dark text-light-grey selection:bg-white selection:text-dark px-6 md:px-20 pt-40 pb-32 font-mono">
+      
+      <AnimatePresence>
+        {selectedOrder && (
+          <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+        )}
+        {/* MODALE D'ADRESSE (AJOUT / MODIFICATION) */}
+        {isAddressModalOpen && (
+          <AddressModal 
+            address={editingAddress} 
+            onClose={() => { setIsAddressModalOpen(false); setEditingAddress(null); }} 
+          />
+        )}
+      </AnimatePresence>
+
       <div className="max-w-7xl mx-auto w-full flex flex-col gap-20">
         
         {/* --- HEADER COMPTE --- */}
@@ -141,7 +173,7 @@ useEffect(() => {
           </motion.div>
         </motion.div>
 
-        {/* --- NAVIGATION SCROLLABLE --- */}
+        {/* --- NAVIGATION --- */}
         <motion.nav variants={containerVariants} initial="hidden" animate="visible" className="flex gap-10 border-b border-light-grey/10 pb-4 relative overflow-x-auto no-scrollbar whitespace-nowrap">
           {TABS.map((tab) => (
             <button
@@ -182,7 +214,7 @@ useEffect(() => {
                         <>
                           <p className="text-2xl font-light text-white">N° ORA-{lastOrder.display_id}</p>
                           <p className="text-[10px] text-light-grey/60 mt-2">
-                            {lastOrder.items?.length || 0} {(lastOrder.items?.length || 0) > 1 ? 'pièces' : 'pièce'} - {formatPrice(lastOrder.total, lastOrder.currency_code)}
+                            {lastOrderItemsCount} {lastOrderItemsText} - {lastOrder.total} {lastOrder.currency_code?.toUpperCase()}
                           </p>
                           <div className="w-full h-px bg-light-grey/10 mt-6 relative overflow-hidden">
                             <motion.div initial={{ width: 0 }} animate={{ width: "66%" }} transition={{ duration: 1.5, ease: LUXURY_EASE, delay: 0.5 }} className="absolute top-0 left-0 h-full bg-white" />
@@ -191,7 +223,9 @@ useEffect(() => {
                             <span className="text-[9px] uppercase tracking-widest text-white">
                               {translateStatus(lastOrder.status, lastOrder.fulfillment_status)}
                             </span>
-                            <button className="text-[9px] uppercase tracking-[0.2em] text-light-grey/40 hover:text-white transition-colors">[ Voir détails ]</button>
+                            <button onClick={() => setSelectedOrder(lastOrder)} className="text-[9px] uppercase tracking-[0.2em] text-light-grey/40 hover:text-white transition-colors">
+                              [ Voir détails ]
+                            </button>
                           </div>
                         </>
                       ) : (
@@ -212,7 +246,7 @@ useEffect(() => {
             )}
 
             {/* 2. HISTORIQUE DES COMMANDES */}
-            {activeTab === 'commandes' && (
+           {activeTab === 'commandes' && (
               <motion.div key="commandes" variants={containerVariants} initial="hidden" animate="visible" exit="exit" className="flex flex-col gap-0 pt-4">
                 <div className="hidden md:flex justify-between pb-4 border-b border-light-grey/20">
                   <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40 w-1/3">Commande</span>
@@ -220,17 +254,23 @@ useEffect(() => {
                   <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40 w-1/4 text-right">Actions</span>
                 </div>
                 
-                {orders.length > 0 ? (
-                  orders.map((order) => (
-                    <OrderRow 
-                      key={order.id}
-                      id={`ORA-${order.display_id}`} 
-                      date={formatDate(order.created_at)} 
-                      item={`${order.items?.length || 0} {(order.items?.length || 0) > 1 ? 'pièces' : 'pièce'}`} 
-                      price={formatPrice(order.total, order.currency_code)} 
-                      status={translateStatus(order.status, order.fulfillment_status)} 
-                    />
-                  ))
+                {sortedOrders.length > 0 ? (
+                  sortedOrders.map((order) => {
+                    const itemCount = order.items?.reduce((acc: number, item: any) => acc + item.quantity, 0) || 0;
+                    const itemText = itemCount > 1 ? 'articles' : 'article';
+
+                    return (
+                      <OrderRow 
+                        key={order.id}
+                        id={`ORA-${order.display_id}`} 
+                        date={formatDate(order.created_at)} 
+                        item={`${itemCount} ${itemText}`} 
+                        price={`${order.total} ${order.currency_code?.toUpperCase()}`}
+                        status={translateStatus(order.status, order.fulfillment_status)} 
+                        onViewDetails={() => setSelectedOrder(order)} 
+                      />
+                    );
+                  })
                 ) : (
                   <motion.p variants={itemVariants} className="text-[10px] text-light-grey/60 uppercase tracking-widest mt-10">
                     Votre archive personnelle est vide.
@@ -248,7 +288,7 @@ useEffect(() => {
                 <motion.div variants={itemVariants}>
                   <a href="mailto:contact@oratrip.com" className="group relative inline-flex items-center gap-6 cursor-pointer mt-4">
                     <span className="font-title text-xl tracking-widest text-white group-hover:italic transition-all duration-500">
-                      CONTACTER LE VESTIAIRE
+                      CONTACTER LE SERVICE CLIENT
                     </span>
                     <div className="w-12 h-px bg-white group-hover:w-24 transition-all duration-500 ease-out" />
                   </a>
@@ -256,36 +296,49 @@ useEffect(() => {
               </motion.div>
             )}
 
-            {/* 4. ADRESSES */}
+            {/* 4. CARNET D'ADRESSES INTERACTIF */}
             {activeTab === 'adresses' && (
-              <motion.div key="adresses" variants={containerVariants} initial="hidden" animate="visible" exit="exit" className="grid grid-cols-1 md:grid-cols-2 gap-20 pt-4">
+              <motion.div key="adresses" variants={containerVariants} initial="hidden" animate="visible" exit="exit" className="flex flex-col gap-8 pt-4 w-full">
+                <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40">Vos destinations d'expédition</span>
                 
-                <div className="flex flex-col gap-8">
-                  <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40">Vos carnets d'adresses</span>
-                  
-                  {/* Validation sécurisée du type des adresses pour Medusa V2 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
                   {((customer as any).addresses?.length > 0) ? (
                     (customer as any).addresses.map((address: any) => (
-                      <motion.div key={address.id} variants={itemVariants} className="border border-light-grey/10 p-8 flex flex-col gap-4 group hover:border-light-grey/30 transition-colors duration-500">
+                      <motion.div key={address.id} variants={itemVariants} className="border border-light-grey/10 p-8 flex flex-col gap-4 group hover:border-light-grey/30 transition-colors duration-500 bg-[#111111]">
                         <p className="text-white text-sm uppercase tracking-widest">{address.first_name} {address.last_name}</p>
-                        <p className="text-light-grey/60 font-light text-sm">
+                        <p className="text-light-grey/60 font-light text-sm leading-relaxed">
                           {address.address_1}<br/>
                           {address.address_2 && <>{address.address_2}<br/></>}
                           {address.postal_code} {address.city}<br/>
                           {address.country_code?.toUpperCase()}
                         </p>
                         <div className="flex gap-6 mt-4 pt-4 border-t border-light-grey/10">
-                          <button className="text-[9px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors">Modifier</button>
-                          <button className="text-[9px] uppercase tracking-[0.2em] text-red-400/40 hover:text-red-400 transition-colors">Supprimer</button>
+                          <button 
+                            onClick={() => { setEditingAddress(address); setIsAddressModalOpen(true); }}
+                            className="text-[9px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors cursor-pointer"
+                          >
+                            Modifier
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteAddress(address.id)}
+                            className="text-[9px] uppercase tracking-[0.2em] text-red-400/40 hover:text-red-400 transition-colors cursor-pointer"
+                          >
+                            Supprimer
+                          </button>
                         </div>
                       </motion.div>
                     ))
                   ) : (
                      <p className="text-[10px] text-light-grey/60 uppercase tracking-widest mt-2">Aucune adresse enregistrée.</p>
                   )}
-                  <button className="text-[9px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors w-max">[ + Ajouter une adresse ]</button>
                 </div>
-
+                
+                <button 
+                  onClick={() => { setEditingAddress(null); setIsAddressModalOpen(true); }}
+                  className="text-[9px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors w-max cursor-pointer mt-4"
+                >
+                  [ + Ajouter une adresse ]
+                </button>
               </motion.div>
             )}
 
@@ -304,7 +357,7 @@ useEffect(() => {
 
                   <div className="flex flex-col gap-10">
                     <div className="pt-20">
-                      <HoldToDeleteButton />
+                      <HoldToDeleteButton onComplete={handleDeleteAccount} />
                     </div>
                   </div>
                 </div>
@@ -319,7 +372,7 @@ useEffect(() => {
   );
 }
 
-// --- MICRO-COMPOSANTS ---
+// --- MICRO-COMPOSANTS INTERNES ---
 
 const InfoRow = ({ label, value, editable = false }: { label: string, value: string, editable?: boolean }) => (
   <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between py-6 border-b border-light-grey/10 group hover:border-light-grey/30 transition-colors duration-500">
@@ -339,7 +392,7 @@ const InfoRow = ({ label, value, editable = false }: { label: string, value: str
   </motion.div>
 );
 
-const OrderRow = ({ id, date, item, price, status }: { id: string, date: string, item: string, price: string, status: string }) => (
+const OrderRow = ({ id, date, item, price, status, onViewDetails }: { id: string, date: string, item: string, price: string, status: string, onViewDetails: () => void }) => (
   <motion.div variants={itemVariants} className="flex flex-col md:flex-row justify-between md:items-center py-8 border-b border-light-grey/10 group hover:border-light-grey/30 transition-colors duration-500 gap-6 md:gap-0">
     <div className="w-full md:w-1/3 flex flex-col gap-2">
       <p className="text-lg text-white">{id}</p>
@@ -352,34 +405,39 @@ const OrderRow = ({ id, date, item, price, status }: { id: string, date: string,
     <div className="w-full md:w-1/4 flex flex-col md:items-end gap-3">
       <span className="text-sm text-white">{price}</span>
       <div className="flex gap-4">
-        <button className="text-[9px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors">Facture</button>
+        <button onClick={onViewDetails} className="text-[9px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors cursor-pointer">Détails</button>
+        <button className="text-[9px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors cursor-pointer">Facture</button>
       </div>
     </div>
   </motion.div>
 );
 
-const HoldToDeleteButton = () => {
+const HoldToDeleteButton = ({ onComplete }: { onComplete: () => void }) => {
   const [isHolding, setIsHolding] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [isDeleted, setIsDeleted] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isHolding) {
+    if (isHolding && !isDeleted) {
       interval = setInterval(() => {
         setProgress((prev) => {
           if (prev >= 100) {
             clearInterval(interval);
-            console.log("Compte supprimé.");
+            if (!isDeleted) {
+              setIsDeleted(true);
+              onComplete(); 
+            }
             return 100;
           }
           return prev + 2; 
         });
       }, 30);
-    } else {
+    } else if (!isDeleted) {
       setProgress(0); 
     }
     return () => clearInterval(interval);
-  }, [isHolding]);
+  }, [isHolding, isDeleted, onComplete]);
 
   return (
     <div 
@@ -401,5 +459,195 @@ const HoldToDeleteButton = () => {
         />
       </div>
     </div>
+  );
+};
+
+const OrderDetailsModal = ({ order, onClose }: { order: any, onClose: () => void }) => {
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      exit={{ opacity: 0 }} 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-dark/80 backdrop-blur-md p-4"
+      onClick={onClose}
+    >
+      <motion.div 
+        initial={{ y: 20, opacity: 0 }} 
+        animate={{ y: 0, opacity: 1 }} 
+        exit={{ y: 20, opacity: 0 }} 
+        transition={{ ease: LUXURY_EASE, duration: 0.8 }}
+        className="bg-[#111111] border border-light-grey/20 p-8 md:p-12 max-w-2xl w-full flex flex-col gap-8 shadow-2xl"
+        onClick={(e) => e.stopPropagation()} 
+      >
+        <div className="flex justify-between items-start border-b border-light-grey/10 pb-6">
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] tracking-[0.4em] uppercase text-light-grey/40">Commande</span>
+            <h3 className="font-title text-3xl italic text-white">ORA-{order.display_id}</h3>
+          </div>
+          <button onClick={onClose} className="text-[10px] tracking-[0.3em] uppercase text-light-grey/40 hover:text-white transition-colors cursor-pointer">
+            [ X ]
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-6 max-h-[50vh] overflow-y-auto no-scrollbar pr-2">
+          {order.items?.map((item: any) => (
+            <div key={item.id} className="flex items-center gap-6 border-b border-light-grey/5 pb-4">
+              
+            {(item.thumbnail || item.variant?.product?.thumbnail) ? (
+                <div className="w-16 md:w-20 aspect-[3/4] bg-white/5 relative overflow-hidden flex-shrink-0">
+                  <img 
+                    src={item.thumbnail || item.variant?.product?.thumbnail} 
+                    alt={item.title} 
+                    className="object-cover w-full h-full opacity-80" 
+                  />
+                </div>
+              ) : (
+                <div className="w-16 md:w-20 aspect-[3/4] bg-white/5 flex items-center justify-center flex-shrink-0">
+                  <span className="text-[8px] text-light-grey/20 uppercase text-center px-1">Aucune Image</span>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1 flex-grow">
+                <span className="text-[10px] md:text-xs uppercase tracking-widest text-white">{item.title}</span>
+                <span className="text-[9px] text-light-grey/40 uppercase tracking-widest mt-1">
+                  Taille : {item.variant?.title || item.description || '-'}
+                </span>
+              </div>
+
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                <span className="text-sm font-light text-white">x{item.quantity}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-4 pt-4 border-t border-light-grey/10">
+          <div className="flex justify-between text-white text-sm">
+            <span className="text-[10px] uppercase tracking-widest">Total de l'acquisition</span>
+            <span>{order.total} {order.currency_code?.toUpperCase()}</span>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// ⚡️ NOUVEAU : LA MODALE MAGIQUE DE CRÉATION ET MODIFICATION D'ADRESSE
+const AddressModal = ({ address, onClose }: { address: any | null, onClose: () => void }) => {
+  const isEdit = !!address;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [form, setForm] = useState({
+    first_name: address?.first_name || "",
+    last_name: address?.last_name || "",
+    address_1: address?.address_1 || "",
+    address_2: address?.address_2 || "",
+    postal_code: address?.postal_code || "",
+    city: address?.city || "",
+    country_code: address?.country_code || "fr",
+    phone: address?.phone || ""
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      if (isEdit) {
+        await sdk.store.customer.updateAddress(address.id, form);
+      } else {
+        await sdk.store.customer.createAddress(form);
+      }
+      onClose();
+      window.location.reload(); 
+    } catch (error) {
+      console.error("Erreur lors de l'enregistrement de l'adresse :", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      exit={{ opacity: 0 }} 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-dark/80 backdrop-blur-md p-4"
+      onClick={onClose}
+    >
+      <motion.div 
+        initial={{ y: 20, opacity: 0 }} 
+        animate={{ y: 0, opacity: 1 }} 
+        exit={{ y: 20, opacity: 0 }} 
+        transition={{ ease: LUXURY_EASE, duration: 0.8 }}
+        className="bg-[#111111] border border-light-grey/20 p-8 md:p-12 max-w-xl w-full flex flex-col gap-8 shadow-2xl font-mono text-[11px]"
+        onClick={(e) => e.stopPropagation()} 
+      >
+        <div className="flex justify-between items-start border-b border-light-grey/10 pb-6">
+          <div className="flex flex-col gap-2">
+            <span className="text-[9px] tracking-[0.4em] uppercase text-light-grey/40">Carnet d'adresses</span>
+            <h3 className="font-title text-2xl italic text-white">
+              {isEdit ? "MODIFIER LA DESTINATION" : "NOUVELLE DESTINATION"}
+            </h3>
+          </div>
+          <button onClick={onClose} className="text-[9px] tracking-[0.3em] uppercase text-light-grey/40 hover:text-white transition-colors cursor-pointer">
+            [ X ]
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <div className="grid grid-cols-2 gap-6">
+            <div className="flex flex-col gap-2">
+              <label className="uppercase text-light-grey/40 tracking-widest text-[9px]">Prénom</label>
+              <input required type="text" value={form.first_name} onChange={e => setForm({...form, first_name: e.target.value})} className="bg-transparent border-b border-light-grey/10 py-2 text-white focus:border-white focus:outline-none transition-colors" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="uppercase text-light-grey/40 tracking-widest text-[9px]">Nom</label>
+              <input required type="text" value={form.last_name} onChange={e => setForm({...form, last_name: e.target.value})} className="bg-transparent border-b border-light-grey/10 py-2 text-white focus:border-white focus:outline-none transition-colors" />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="uppercase text-light-grey/40 tracking-widest text-[9px]">Adresse principale</label>
+            <input required type="text" value={form.address_1} onChange={e => setForm({...form, address_1: e.target.value})} className="bg-transparent border-b border-light-grey/10 py-2 text-white focus:border-white focus:outline-none transition-colors" />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="uppercase text-light-grey/40 tracking-widest text-[9px]">Complément d'adresse (Appartement, bureau...)</label>
+            <input type="text" value={form.address_2} onChange={e => setForm({...form, address_2: e.target.value})} className="bg-transparent border-b border-light-grey/10 py-2 text-white focus:border-white focus:outline-none transition-colors" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            <div className="flex flex-col gap-2">
+              <label className="uppercase text-light-grey/40 tracking-widest text-[9px]">Code Postal</label>
+              <input required type="text" value={form.postal_code} onChange={e => setForm({...form, postal_code: e.target.value})} className="bg-transparent border-b border-light-grey/10 py-2 text-white focus:border-white focus:outline-none transition-colors" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="uppercase text-light-grey/40 tracking-widest text-[9px]">Ville</label>
+              <input required type="text" value={form.city} onChange={e => setForm({...form, city: e.target.value})} className="bg-transparent border-b border-light-grey/10 py-2 text-white focus:border-white focus:outline-none transition-colors" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            <div className="flex flex-col gap-2">
+              <label className="uppercase text-light-grey/40 tracking-widest text-[9px]">Code Pays (ex: fr)</label>
+              <input required type="text" maxLength={2} value={form.country_code} onChange={e => setForm({...form, country_code: e.target.value.toLowerCase()})} className="bg-transparent border-b border-light-grey/10 py-2 text-white focus:border-white focus:outline-none transition-colors uppercase" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="uppercase text-light-grey/40 tracking-widest text-[9px]">Téléphone</label>
+              <input type="text" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="bg-transparent border-b border-light-grey/10 py-2 text-white focus:border-white focus:outline-none transition-colors" />
+            </div>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={isSubmitting}
+            className="w-full bg-white text-dark py-5 font-mono text-[9px] uppercase tracking-[0.4em] font-bold hover:bg-light-grey transition-colors duration-500 mt-4 disabled:opacity-50 cursor-pointer"
+          >
+            {isSubmitting ? "Enregistrement..." : "[ Enregistrer la destination ]"}
+          </button>
+        </form>
+      </motion.div>
+    </motion.div>
   );
 };

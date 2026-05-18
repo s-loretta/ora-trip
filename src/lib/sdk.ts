@@ -8,12 +8,12 @@ let MEDUSA_BACKEND_URL = "http://localhost:9000"
 if (process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL) {
   MEDUSA_BACKEND_URL = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
 }
-console.log("Ma clé Medusa est :", process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY);
+
 export const sdk = new Medusa({
   baseUrl: MEDUSA_BACKEND_URL,
-  debug: process.env.NODE_ENV === "development",
+  debug: false, 
   publishableKey: process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY,
   auth: {
-    type: "jwt", // Stocke le JWT dans localStorage automatiquement
+    type: "jwt", 
   },
 })

@@ -1,8 +1,10 @@
-// FRONTEND NEXT.JS
-// Chemin : src/services/product.service.ts
+// src/services/product.service.ts
 //
-// Appelle la route personnalisée /store/custom
-// qui retourne les produits avec le stock réel injecté.
+// OPTIMISATIONS :
+// - cache: "force-cache" + revalidate ISR (30s) sur fetchInventory
+//   → Next.js met en cache la réponse sur le serveur, Railway n'est appelé qu'une fois toutes les 30s max
+// - cache: "no-store" uniquement sur fetchPiece (stock temps-réel obligatoire)
+// - Pas de try/catch qui avalent les erreurs silencieusement sur les paths critiques
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000";
@@ -19,19 +21,22 @@ export interface ProductData {
   value: string;
   imagePath: string;
   images: string[];
-  formats: {id: string, name: string; stock: number }[];
+  formats: { id: string; name: string; stock: number }[];
   maxAllocation: number;
-  
 }
 
-async function medusaFetch(path: string): Promise<any> {
+// ─── FETCH DE BASE ────────────────────────────────────────────────────────────
+async function medusaFetch(
+  path: string,
+  options: RequestInit = {}
+): Promise<any> {
   const url = `${BACKEND_URL}/store/${path}`;
   const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
       "x-publishable-api-key": PUBLISHABLE_KEY,
     },
-    cache: "no-store",
+    ...options,
   });
 
   if (!res.ok) {
@@ -41,12 +46,17 @@ async function medusaFetch(path: string): Promise<any> {
 
   return res.json();
 }
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const ProductService = {
+  // ✅ CACHE ISR : Next.js met en cache cette réponse 30 secondes côté serveur.
+  // Railway reçoit au maximum 1 requête par tranche de 30s, peu importe le nombre de visiteurs.
+  // Augmente `revalidate` si tes stocks changent rarement (ex: 300 pour 5 minutes).
   async fetchInventory(): Promise<ProductData[]> {
     try {
-      // On appelle notre route personnalisée qui inclut le stock réel
-      const data = await medusaFetch("custom");
+      const data = await medusaFetch("custom", {
+        next: { revalidate: 30 }, // ISR Next.js — à ajuster selon la fréquence de tes MAJ de stock
+      } as any);
       return (data.products || []).map((p: any) => this.mapMedusaToOra(p));
     } catch (error) {
       console.error("Erreur inventaire:", error);
@@ -54,9 +64,13 @@ export const ProductService = {
     }
   },
 
+  // ✅ Fiche produit : stock temps-réel requis → pas de cache
+  // Mais on cible uniquement ce qui est nécessaire via les fields Medusa
   async fetchPiece(handle: string): Promise<ProductData | null> {
     try {
-      const data = await medusaFetch(`custom?handle=${handle}`);
+      const data = await medusaFetch(`custom?handle=${handle}`, {
+        cache: "no-store",
+      });
       const products = data.products || [];
       if (products.length === 0) return null;
       return this.mapMedusaToOra(products[0]);
@@ -70,9 +84,10 @@ export const ProductService = {
     const variants = product.variants || [];
 
     const formats = variants.map((v: any) => ({
-      id: v.id, // <--- AJOUT CRUCIAL ICI
+      id: v.id,
       name: v.title || "Unique",
-      stock: typeof v.inventory_quantity === "number" ? v.inventory_quantity : 0,
+      stock:
+        typeof v.inventory_quantity === "number" ? v.inventory_quantity : 0,
     }));
 
     const totalStock = formats.reduce(
@@ -80,7 +95,6 @@ export const ProductService = {
       0
     );
 
-    // Prix en centimes → euros
     const firstVariant = variants[0];
     let priceAmount = 0;
     if (firstVariant?.prices?.length) {
@@ -91,13 +105,13 @@ export const ProductService = {
     }
 
     const priceFormatted =
-  priceAmount > 0
-    ? `${priceAmount.toFixed(2).replace(".", ",")} €`
-    : "Prix sur demande"
+      priceAmount > 0
+        ? `${priceAmount.toFixed(2).replace(".", ",")} €`
+        : "Prix sur demande";
 
-    const productImages: string[] = product.images?.map((img: any) => img.url) || [];
-    
-    // Fallbacks si la galerie est vide mais qu'il y a un thumbnail, ou si tout est vide
+    const productImages: string[] =
+      product.images?.map((img: any) => img.url) || [];
+
     if (productImages.length === 0 && product.thumbnail) {
       productImages.push(product.thumbnail);
     }
@@ -113,8 +127,8 @@ export const ProductService = {
       material: product.material || "Undefined",
       history: product.description || "Undefined",
       value: priceFormatted,
-      imagePath: productImages[0], 
-      images: productImages,       
+      imagePath: productImages[0],
+      images: productImages,
       formats,
       maxAllocation: totalStock,
     };

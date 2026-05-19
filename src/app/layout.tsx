@@ -5,7 +5,7 @@ import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/CartDrawer"; // Injection du composant d'inventaire
 import NotificationModal from "@/components/NotificationModal";
 import LenisProvider from '@/components/LenisProvider';
-
+import Prefetcher from "@/components/Prefetcher";
 // --- CONFIGURATION TYPOGRAPHIQUE (ORA TRIP ADN) ---
 
 // Font Title (Serif/Italique pour les grands titres)
@@ -36,6 +36,15 @@ export default function RootLayout({
   return (
     // 🚨 ATTENTION : Suppression de "scroll-smooth" pour laisser Lenis gérer la physique
     <html lang="fr">
+      <head>
+        {/* Preconnect Stripe — réduit la latence du PaymentElement */}
+        <link rel="preconnect" href="https://js.stripe.com" />
+        <link rel="preconnect" href="https://api.stripe.com" />
+        <link rel="dns-prefetch" href="https://js.stripe.com" />
+        {/* Preconnect Railway (backend Medusa) */}
+        <link rel="preconnect" href={process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL} />
+        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL} />
+      </head>
       {/* APPLICATION STRICTE DU DESIGN SYSTEM :
         - bg-dark (#131313) et text-light-grey (#C3C3C3) obligatoires à la racine.
         - selection:bg-white selection:text-dark pour une interaction texte premium.
@@ -54,7 +63,7 @@ export default function RootLayout({
         <LenisProvider>
           <Navbar />
           <NotificationModal />
-          
+          <Prefetcher />
           {/* LE TIROIR GLOBAL : Reste invisible et inactif jusqu'à son déclenchement */}
           <CartDrawer />
           

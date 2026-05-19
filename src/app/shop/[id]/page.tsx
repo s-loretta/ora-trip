@@ -116,11 +116,11 @@ export default function PiecePage({ params }: PageProps) {
  const handleAcquisition = async () => {
     if (!piece || !selectedFormat) return;
 
-    // ⚡️ ARCHITECTURE V2 : Plus besoin de passer l'image, le prix, etc. 
-    // On donne juste l'ID et la quantité à Medusa !
-    await addToCart(selectedFormat.id, allocation);
-
+    // 1. On ouvre le tiroir IMMÉDIATEMENT (0 latence pour le client)
     openCart();
+
+    // 2. On lance l'ajout à la base de données en arrière-plan
+    await addToCart(selectedFormat.id, allocation);
   };
 
   return (

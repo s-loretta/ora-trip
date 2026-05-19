@@ -27,8 +27,7 @@ export default function CartDrawer() {
   const { isCartOpen, closeCart } = useUIStore();
   
   // Récupération des données et actions du panier
-  const { items, removeFromCart, updateQuantity, getCartTotal, isHydrated } = useCartStore();
-
+  const { items, removeFromCart, updateQuantity, getCartTotal, isHydrated, isLoading } = useCartStore();
   // Calcul du sous-total via le store
   const rawSubtotal = getCartTotal();
 
@@ -79,8 +78,8 @@ export default function CartDrawer() {
 
             {/* LISTE DYNAMIQUE */}
             <div className="flex-1 overflow-y-auto no-scrollbar p-8">
-              <AnimatePresence mode="popLayout">
-                {items.length === 0 ? (
+             <AnimatePresence mode="popLayout">
+                {items.length === 0 && !isLoading ? (
                   <motion.div 
                     initial={{ opacity: 0 }} 
                     animate={{ opacity: 1 }}
@@ -88,6 +87,15 @@ export default function CartDrawer() {
                   >
                     <span className="font-title text-5xl text-light-grey/10 italic font-light">Vide</span>
                     <p className="font-mono text-[9px] uppercase tracking-widest text-light-grey/30">L'archive est en attente de sélection.</p>
+                  </motion.div>
+                ) : items.length === 0 && isLoading ? (
+                  // ⚡️ NOUVEL ÉCRAN DE CHARGEMENT PREMIUM
+                  <motion.div 
+                    initial={{ opacity: 0 }} 
+                    animate={{ opacity: 1 }}
+                    className="h-full flex flex-col items-center justify-center text-center gap-4"
+                  >
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-light-grey/40 animate-pulse">Acquisition en cours...</span>
                   </motion.div>
                 ) : (
                   <div className="flex flex-col gap-10">

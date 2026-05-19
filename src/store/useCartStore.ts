@@ -96,31 +96,28 @@ export const useCartStore = create<CartState>()(
         }
       },
 
-      // 🔄 3. MISE À JOUR (Optimistic UI : Instantané !)
+      // 🔄 3. MISE À JOUR (Optimistic UI 100% Fluide)
       updateQuantity: async (lineItemId: string, quantity: number) => {
         const { cartId, items } = get();
         if (!cartId) return;
 
-        // A. Sauvegarde de l'état précédent (en cas d'erreur)
         const previousItems = [...items];
 
-        // B. Mise à jour IMMÉDIATE de l'UI (0 latence ressentie)
+        // A. Mise à jour IMMÉDIATE de l'UI (0 latence ressentie)
         set({
           items: items.map(item => 
             item.id === lineItemId ? { ...item, quantity } : item
           )
         });
 
-        // C. Envoi silencieux au serveur en arrière-plan
+        // B. Envoi silencieux au serveur
         try {
-          const { cart } = await sdk.store.cart.updateLineItem(cartId, lineItemId, { quantity }, {
-            fields: "+items.*,+items.variant.*,+items.variant.product.*"
-          });
-          // Optionnel : On synchronise avec la vraie réponse du serveur pour être sûr
-          set({ items: formatCartItems(cart.items) });
+           await sdk.store.cart.updateLineItem(cartId, lineItemId, { quantity });
+          // ⚡️ ON SUPPRIME la ligne qui écrasait le state avec la réponse du serveur !
+          // C'est elle qui causait le bug si le client cliquait très vite.
         } catch (error) {
           console.error("Erreur serveur, annulation de la quantité.");
-          set({ items: previousItems }); // Rollback
+          set({ items: previousItems }); // Rollback uniquement en cas de vraie erreur
         }
       },
 

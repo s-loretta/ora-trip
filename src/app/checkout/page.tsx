@@ -19,30 +19,22 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY || "pk_test_
 // --- DICTIONNAIRE DES ERREURS STRIPE ---
 const translateStripeError = (errorCode: string | undefined): string => {
   switch (errorCode) {
-    case 'insufficient_funds':
-      return "Les fonds sur cette carte sont insuffisants. Veuillez utiliser un autre moyen de paiement.";
+    case 'insufficient_funds': return "Les fonds sur cette carte sont insuffisants.";
     case 'card_declined':
     case 'fraudulent':
-    case 'transaction_not_allowed':
-      return "Votre banque a refusé la transaction. Veuillez vérifier vos plafonds ou essayer une autre carte.";
-    case 'expired_card':
-      return "Votre carte a expiré. Veuillez utiliser un moyen de paiement valide.";
+    case 'transaction_not_allowed': return "Votre banque a refusé la transaction.";
+    case 'expired_card': return "Votre carte a expiré.";
     case 'incorrect_cvc':
-    case 'invalid_cvc':
-      return "Le code de sécurité (CVC) est incorrect.";
-    case 'processing_error':
-      return "Une erreur est survenue lors du traitement par la banque. Veuillez réessayer.";
+    case 'invalid_cvc': return "Le code de sécurité (CVC) est incorrect.";
+    case 'processing_error': return "Une erreur est survenue lors du traitement.";
     case 'incomplete_number':
-    case 'invalid_number':
-      return "Le numéro de carte est incomplet ou invalide.";
-    case 'incomplete_expiry':
-      return "La date d'expiration de la carte est incomplète.";
-    default:
-      return "Le paiement n'a pas pu aboutir. Veuillez vérifier vos informations ou essayer une autre carte.";
+    case 'invalid_number': return "Le numéro de carte est incomplet ou invalide.";
+    case 'incomplete_expiry': return "La date d'expiration de la carte est incomplète.";
+    default: return "Le paiement n'a pas pu aboutir. Veuillez essayer une autre carte.";
   }
 };
 
-// --- SCHÉMA ---
+// --- SCHÉMA DE VALIDATION ---
 const shippingSchema = z.object({
   firstName: z.string().min(1, "Requis"),
   lastName: z.string().min(1, "Requis"),
@@ -84,13 +76,12 @@ export default function CheckoutPage() {
   const { customer, isAuthenticated } = useUserStore()
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
-  const [focusedField, setFocusedField] = useState<keyof ShippingFormData | null>(null)
 
   const [shippingOptions, setShippingOptions] = useState<any[]>([])
   const [selectedShippingId, setSelectedShippingId] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
 
-const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<ShippingFormData>({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<ShippingFormData>({
     resolver: zodResolver(shippingSchema),
     defaultValues: {
       email: customer?.email || '',
@@ -118,7 +109,7 @@ const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<
 
   useEffect(() => {
     if (isHydrated && items.length === 0) {
-      router.push("/shop")
+      router.push("/galerie")
     }
   }, [isHydrated, items, router])
 
@@ -175,7 +166,16 @@ const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<
     }
   }
 
-  if (!isHydrated || items.length === 0 || !isAuthenticated) return null
+  // ⚡️ CORRECTION 1 : Écran d'attente (Skeleton) au lieu d'un écran vide
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-dark flex flex-col items-center justify-center gap-4 text-light-grey font-mono">
+        <span className="text-[10px] uppercase tracking-widest animate-pulse">Synchronisation de l'archive...</span>
+      </div>
+    );
+  }
+
+  if (items.length === 0 || !isAuthenticated) return null
 
   const subtotal = getCartTotal()
   const selectedOptionData = shippingOptions.find(opt => opt.id === selectedShippingId)
@@ -192,7 +192,7 @@ const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<
           {/* ÉTAPE 1 */}
           <motion.section variants={stepVariants} initial="active" animate={step === 1 ? "active" : "inactive"} className="flex flex-col gap-10 origin-left">
             <div className="flex justify-between items-end border-b border-light-grey/10 pb-6">
-              <h2 className="font-title text-4xl md:text-5xl italic text-white">01. Identite</h2>
+              <h2 className="font-title text-4xl md:text-5xl italic text-white">01. Identité</h2>
               {stepError && <p className="text-red-400/80 text-[10px] uppercase tracking-widest mt-4 max-w-[200px] text-right">{stepError}</p>}
               {step > 1 && <button onClick={() => setStep(1)} className="text-[9px] uppercase tracking-widest text-light-grey/40 hover:text-white transition-colors">[ Modifier ]</button>}
             </div>
@@ -208,44 +208,29 @@ const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<
                   onSubmit={handleSubmit(onShippingSubmit)}
                   className="flex flex-col gap-10"
                 >
-
                   <div className="bg-white/[0.02] border border-white/5 p-4 flex items-center justify-between">
                     <span className="text-[10px] tracking-widest text-white uppercase">Archive liée : {customer?.email}</span>
                     <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                   </div>
 
-                  <InputField
-                    label="Email"
-                    name="email"
-                    type="email"
-                    register={register}
-                    error={errors.email?.message}
-                    isFocused={focusedField === "email"}
-                    onFocus={() => setFocusedField("email")}
-                    onBlur={() => setFocusedField(null)}
-                    readOnly={true}
-                  />
+                  <InputField label="Email" name="email" type="email" register={register} error={errors.email?.message} readOnly={true} />
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <InputField label="Prénom" name="firstName" register={register} error={errors.firstName?.message}
-                      isFocused={focusedField === "firstName"} onFocus={() => setFocusedField("firstName")} onBlur={() => setFocusedField(null)} />
-                    <InputField label="Nom" name="lastName" register={register} error={errors.lastName?.message}
-                      isFocused={focusedField === "lastName"} onFocus={() => setFocusedField("lastName")} onBlur={() => setFocusedField(null)} />
+                    <InputField label="Prénom" name="firstName" register={register} error={errors.firstName?.message} />
+                    <InputField label="Nom" name="lastName" register={register} error={errors.lastName?.message} />
                   </div>
-                  <InputField label="Adresse de livraison" name="address" register={register} error={errors.address?.message}
-                    isFocused={focusedField === "address"} onFocus={() => setFocusedField("address")} onBlur={() => setFocusedField(null)} />
+                  
+                  <InputField label="Adresse de livraison" name="address" register={register} error={errors.address?.message} />
+                  
                   <div className="grid grid-cols-2 gap-10">
-                    <InputField label="Code Postal" name="postalCode" register={register} error={errors.postalCode?.message}
-                      isFocused={focusedField === "postalCode"} onFocus={() => setFocusedField("postalCode")} onBlur={() => setFocusedField(null)} />
-                    <InputField label="Ville" name="city" register={register} error={errors.city?.message}
-                      isFocused={focusedField === "city"} onFocus={() => setFocusedField("city")} onBlur={() => setFocusedField(null)} />
+                    <InputField label="Code Postal" name="postalCode" register={register} error={errors.postalCode?.message} />
+                    <InputField label="Ville" name="city" register={register} error={errors.city?.message} />
                   </div>
-                  <InputField label="Pays (ex: FR)" name="country" register={register} error={errors.country?.message}
-                    isFocused={focusedField === "country"} onFocus={() => setFocusedField("country")} onBlur={() => setFocusedField(null)} />
+                  <InputField label="Pays (ex: FR)" name="country" register={register} error={errors.country?.message} />
 
                   <button type="submit" disabled={isProcessingStep} className="group relative inline-flex items-center gap-6 cursor-pointer w-max mt-4 disabled:opacity-50">
                     <span className="font-title text-2xl tracking-widest text-white group-hover:italic transition-all duration-500">
-                      {isProcessingStep ? "SECURISATION..." : "CONTINUER"}
+                      {isProcessingStep ? "SÉCURISATION..." : "CONTINUER"}
                     </span>
                     <motion.div initial={{ width: "2rem" }} whileHover={{ width: "4rem" }} transition={{ ease: LUXURY_EASE, duration: 0.8 }} className="h-px bg-white" />
                   </button>
@@ -285,7 +270,7 @@ const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<
                   {stepError && <p className="text-red-400/80 text-[10px] uppercase tracking-widest mt-4">{stepError}</p>}
                   <button onClick={onMethodSubmit} disabled={!selectedShippingId || isProcessingStep} className="group relative inline-flex items-center gap-6 cursor-pointer w-max mt-8 disabled:opacity-50">
                     <span className="font-title text-2xl tracking-widest text-white group-hover:italic transition-all duration-500">
-                      {isProcessingStep ? "SECURISATION..." : "VALIDER L'EXPÉDITION"}
+                      {isProcessingStep ? "SÉCURISATION..." : "VALIDER L'EXPÉDITION"}
                     </span>
                     <motion.div initial={{ width: "2rem" }} whileHover={{ width: "4rem" }} transition={{ ease: LUXURY_EASE, duration: 0.8 }} className="h-px bg-white" />
                   </button>
@@ -356,7 +341,6 @@ const StripeForm = ({ totalAmount, cartId, clientSecret }: { totalAmount: number
     e.preventDefault()
     if (!stripe || !elements || !cartId || hasSubmitted.current) return
 
-    // 1. Validation locale des champs Stripe
     const { error: submitError } = await elements.submit()
     if (submitError) {
       setErrorMessage(translateStripeError(submitError.decline_code || submitError.code))
@@ -368,7 +352,6 @@ const StripeForm = ({ totalAmount, cartId, clientSecret }: { totalAmount: number
     setErrorMessage(null)
 
     try {
-      // 2. Confirmation du paiement
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         clientSecret,
@@ -378,15 +361,13 @@ const StripeForm = ({ totalAmount, cartId, clientSecret }: { totalAmount: number
         redirect: "if_required",
       })
 
-      // ⚡️ Gestion des refus bancaires et erreurs Stripe
       if (error) {
         hasSubmitted.current = false
         setErrorMessage(translateStripeError(error.decline_code || error.code))
-        setIsProcessing(false) // On arrête le chargement, le client peut réessayer
+        setIsProcessing(false)
         return
       }
 
-      // 3. Redirection de succès
       if (paymentIntent?.status === "requires_capture" || paymentIntent?.status === "succeeded") {
         window.location.href = `/api/capture-payment/${cartId}?redirect_status=succeeded&payment_intent=${paymentIntent.id}&payment_intent_client_secret=${paymentIntent.client_secret}`;
       }
@@ -400,26 +381,14 @@ const StripeForm = ({ totalAmount, cartId, clientSecret }: { totalAmount: number
   return (
     <form onSubmit={handleSubmitPayment} className="flex flex-col gap-10">
       <PaymentElement options={{ layout: "accordion" }} />
-      
-      {/* ⚡️ AFFICHAGE ÉLÉGANT DE L'ERREUR DE PAIEMENT */}
       <AnimatePresence>
         {errorMessage && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0, y: -10 }} 
-            animate={{ opacity: 1, height: 'auto', y: 0 }} 
-            exit={{ opacity: 0, height: 0, y: -10 }}
-            className="border-l border-red-400/50 pl-4 py-2 mt-2"
-          >
-            <p className="text-[10px] uppercase tracking-widest text-red-400/80">
-              Transaction refusée
-            </p>
-            <p className="text-sm font-light text-light-grey/80 mt-1">
-              {errorMessage}
-            </p>
+          <motion.div initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: 'auto', y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} className="border-l border-red-400/50 pl-4 py-2 mt-2">
+            <p className="text-[10px] uppercase tracking-widest text-red-400/80">Transaction refusée</p>
+            <p className="text-sm font-light text-light-grey/80 mt-1">{errorMessage}</p>
           </motion.div>
         )}
       </AnimatePresence>
-
       <button type="submit" disabled={!stripe || isProcessing} className="w-full bg-white text-dark py-6 mt-4 font-mono text-[10px] uppercase tracking-[0.5em] font-bold hover:bg-light-grey transition-colors duration-500 disabled:opacity-50">
         {isProcessing ? "TRAITEMENT SÉCURISÉ..." : `CONFIRMER L'ACQUISITION — ${totalAmount} €`}
       </button>
@@ -427,33 +396,34 @@ const StripeForm = ({ totalAmount, cartId, clientSecret }: { totalAmount: number
   )
 }
 
-// --- MICRO-COMPOSANTS ---
-const InputField = ({ label, name, type = "text", register, error, isFocused, onFocus, onBlur, readOnly }: any) => (
-  <div className="relative flex flex-col gap-2 group w-full">
-    <motion.label animate={{ color: isFocused ? "#FFFFFF" : "rgba(195, 195, 195, 0.4)" }} transition={{ duration: 0.5 }} className="text-[10px] tracking-[0.3em] uppercase">{label}</motion.label>
-    <div className="relative">
-      <input
-        type={type}
-        {...register(name)}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        readOnly={readOnly}
-        className={`
-          w-full bg-transparent
-          border-b border-light-grey/10
-          py-4
-          text-white text-sm
-          outline-none ring-0
-          focus:outline-none focus:ring-0 focus:border-0 focus:border-b focus:border-light-grey/10
-          font-light transition-colors duration-500
-          ${readOnly ? "opacity-40 cursor-not-allowed select-none" : ""}
-        `}
-      />
-      <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: isFocused ? 1 : 0 }} transition={{ duration: 0.8, ease: LUXURY_EASE }} className="absolute bottom-0 left-0 w-full h-px bg-white origin-left" />
+// ⚡️ CORRECTION 2 : Animation ultra-fluide avec isolation du "focus" (Zéro latence au clavier)
+const InputField = ({ label, name, type = "text", register, error, readOnly }: any) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const { onBlur: rhfOnBlur, ...rest } = register(name);
+
+  return (
+    <div className="relative flex flex-col gap-2 group w-full">
+      <motion.label animate={{ color: isFocused ? "#FFFFFF" : "rgba(195, 195, 195, 0.4)" }} transition={{ duration: 0.5 }} className="text-[10px] tracking-[0.3em] uppercase">
+        {label}
+      </motion.label>
+      <div className="relative">
+        <input
+          type={type}
+          {...rest}
+          onFocus={() => setIsFocused(true)}
+          onBlur={(e) => {
+            setIsFocused(false);
+            rhfOnBlur(e); // Valide le champ avec react-hook-form
+          }}
+          readOnly={readOnly}
+          className={`w-full bg-transparent border-b border-light-grey/10 py-4 text-white text-sm outline-none ring-0 focus:outline-none focus:ring-0 focus:border-0 focus:border-b focus:border-light-grey/10 font-light transition-colors duration-500 ${readOnly ? "opacity-40 cursor-not-allowed select-none" : ""}`}
+        />
+        <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: isFocused ? 1 : 0 }} transition={{ duration: 0.8, ease: LUXURY_EASE }} className="absolute bottom-0 left-0 w-full h-px bg-white origin-left" />
+      </div>
+      {error && <span className="absolute -bottom-5 text-red-400/60 text-[9px] uppercase tracking-widest">{error}</span>}
     </div>
-    {error && <span className="absolute -bottom-5 text-red-400/60 text-[9px] uppercase tracking-widest">{error}</span>}
-  </div>
-)
+  )
+}
 
 const ShippingOption = ({ title, delay, price, isActive, onClick }: any) => (
   <div onClick={onClick} className={`relative flex items-center justify-between p-6 border transition-colors duration-500 cursor-pointer group ${isActive ? "border-white bg-white/[0.02]" : "border-light-grey/10 hover:border-light-grey/30"}`}>

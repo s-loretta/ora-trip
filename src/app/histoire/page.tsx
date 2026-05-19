@@ -147,7 +147,7 @@ const Page = () => {
                 className="absolute inset-0 w-full h-full"
             >
                 <Image 
-                  src="/histoire/01.jpg" 
+                  src="/histoire/01.JPG" 
                   alt="La naissance d'une quête" 
                   fill 
                   className="object-cover opacity-80" 
@@ -214,7 +214,7 @@ const Page = () => {
         >
           {/* ⚡️ IMAGE PANORAMIQUE AJOUTÉE ICI */}
           <Image 
-            src="/histoire/04.jpg" 
+            src="/histoire/04.JPG" 
             alt="Le design est un langage" 
             fill 
             className="object-cover opacity-90" 
@@ -283,7 +283,7 @@ const Page = () => {
             className="relative aspect-[3/4] w-full bg-light-grey/5 border border-light-grey/10 flex items-center justify-center overflow-hidden order-1 md:order-2 md:sticky md:top-24"
           >
             <Image 
-              src="/histoire/2.jpg" 
+              src="/histoire/2.JPG" 
               alt="Culture & Vision ORA TRIP" 
               fill 
               className="object-cover opacity-80" 
@@ -348,7 +348,7 @@ const Page = () => {
                 {/* ⚡️ IMAGE AGRANDIE ICI */}
                 <div className="relative aspect-square w-64 md:w-80 bg-light-grey/5 border border-light-grey/10 self-center md:self-start flex items-center justify-center overflow-hidden mt-4">
                   <Image 
-                    src="/histoire/03.jpg" 
+                    src="/histoire/03.JPG" 
                     alt="Symbolique ORA TRIP" 
                     fill 
                     className="object-cover opacity-80" 

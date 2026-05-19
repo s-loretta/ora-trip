@@ -4,7 +4,7 @@ import { persist } from "zustand/middleware"
 import { sdk } from "@/lib/sdk"
 
 export interface CartItem {
-  id: string // ⚡️ L'ID réel du LineItem dans Medusa
+  id: string 
   variantId: string
   title: string
   variantTitle: string
@@ -30,6 +30,19 @@ interface CartState {
   getItemCount: () => number
 }
 
+// ⚡️ HELPER : Accepte 'undefined' en toute sécurité
+const formatCartItems = (cartItems: any[] | undefined): CartItem[] => {
+  return (cartItems || []).map((i: any) => ({
+    id: i.id,
+    variantId: i.variant_id,
+    title: i.title,
+    variantTitle: i.variant?.title || '',
+    quantity: i.quantity,
+    unitPrice: i.unit_price || 0,
+    thumbnail: i.thumbnail || i.variant?.product?.thumbnail || '',
+  }));
+};
+
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
@@ -40,105 +53,108 @@ export const useCartStore = create<CartState>()(
 
       setHydrated: (state) => set({ isHydrated: state }),
 
-      // 🔄 1. SYNCHRONISATION AVEC MEDUSA
+      // 🔄 1. INITIALISATION
       initCart: async () => {
         const { cartId } = get();
         if (!cartId) return;
 
         try {
-          set({ isLoading: true });
           const { cart } = await sdk.store.cart.retrieve(cartId, {
             fields: "+items.*,+items.variant.*,+items.variant.product.*"
           });
-          
-          // On formate la réponse de Medusa pour que ton UI Front-end lise facilement
-          const formattedItems = (cart.items || []).map((i: any) => ({
-            id: i.id,
-            variantId: i.variant_id,
-            title: i.title,
-            variantTitle: i.variant?.title || '',
-            quantity: i.quantity,
-            unitPrice: i.unit_price || 0,
-            thumbnail: i.thumbnail || i.variant?.product?.thumbnail || '',
-          }));
-
-          set({ items: formattedItems, isLoading: false });
+          set({ items: formatCartItems(cart.items), isLoading: false });
         } catch (error) {
-          console.warn("Panier Medusa introuvable ou converti en commande. Réinitialisation.");
+          console.warn("Panier introuvable. Réinitialisation.");
           set({ cartId: null, items: [], isLoading: false });
         }
       },
 
-      // 🛒 2. AJOUTER AU PANIER
+      // 🛒 2. AJOUTER (Suppression du Double Fetch)
       addToCart: async (variantId: string, quantity: number) => {
         try {
           set({ isLoading: true });
           let { cartId } = get();
 
-          // Création du panier Medusa si inexistant
           if (!cartId) {
             const { cart } = await sdk.store.cart.create({});
             cartId = cart.id;
             set({ cartId });
           }
 
-          // Ajout directement sur le serveur
-          await sdk.store.cart.createLineItem(cartId, {
+          // On récupère la réponse DIRECTEMENT, plus besoin de refaire initCart() !
+          const { cart } = await sdk.store.cart.createLineItem(cartId, {
             variant_id: variantId,
             quantity: quantity,
+          }, {
+            fields: "+items.*,+items.variant.*,+items.variant.product.*"
           });
 
-          // Rafraîchissement automatique
-          await get().initCart();
+          set({ items: formatCartItems(cart.items), isLoading: false });
         } catch (error) {
           console.error("Erreur d'ajout au panier:", error);
           set({ isLoading: false });
         }
       },
 
-      // 🔄 3. METTRE À JOUR LA QUANTITÉ
+      // 🔄 3. MISE À JOUR (Optimistic UI : Instantané !)
       updateQuantity: async (lineItemId: string, quantity: number) => {
-        const { cartId } = get();
+        const { cartId, items } = get();
         if (!cartId) return;
 
+        // A. Sauvegarde de l'état précédent (en cas d'erreur)
+        const previousItems = [...items];
+
+        // B. Mise à jour IMMÉDIATE de l'UI (0 latence ressentie)
+        set({
+          items: items.map(item => 
+            item.id === lineItemId ? { ...item, quantity } : item
+          )
+        });
+
+        // C. Envoi silencieux au serveur en arrière-plan
         try {
-          set({ isLoading: true });
-          await sdk.store.cart.updateLineItem(cartId, lineItemId, { quantity });
-          await get().initCart();
+          const { cart } = await sdk.store.cart.updateLineItem(cartId, lineItemId, { quantity }, {
+            fields: "+items.*,+items.variant.*,+items.variant.product.*"
+          });
+          // Optionnel : On synchronise avec la vraie réponse du serveur pour être sûr
+          set({ items: formatCartItems(cart.items) });
         } catch (error) {
-          console.error("Erreur de mise à jour:", error);
-          set({ isLoading: false });
+          console.error("Erreur serveur, annulation de la quantité.");
+          set({ items: previousItems }); // Rollback
         }
       },
 
-      // 🗑️ 4. RETIRER DU PANIER
+      // 🗑️ 4. RETIRER DU PANIER (Optimistic UI)
       removeFromCart: async (lineItemId: string) => {
-        const { cartId } = get();
+        const { cartId, items } = get();
         if (!cartId) return;
 
+        const previousItems = [...items];
+
+        // Suppression immédiate à l'écran (0 latence)
+        set({ items: items.filter(item => item.id !== lineItemId) });
+
         try {
-          set({ isLoading: true });
+          // Envoi de l'ordre au serveur (Medusa ne renvoie pas le 'cart' ici, juste une confirmation)
           await sdk.store.cart.deleteLineItem(cartId, lineItemId);
-          await get().initCart();
+          
         } catch (error) {
-          console.error("Erreur de suppression:", error);
-          set({ isLoading: false });
+          console.error("Erreur serveur, restauration de l'article.");
+          set({ items: previousItems }); // Rollback si le réseau coupe
         }
       },
 
       clearCart: () => set({ items: [], cartId: null }),
-
       getCartTotal: () => get().items.reduce((total, item) => total + item.unitPrice * item.quantity, 0),
-
       getItemCount: () => get().items.reduce((count, item) => count + item.quantity, 0),
     }),
     {
       name: "ora-cart-storage",
-      partialize: (state) => ({ cartId: state.cartId }), // ⚡️ MAGIE : Seul l'ID est stocké en local !
+      partialize: (state) => ({ cartId: state.cartId }), 
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.setHydrated(true);
-          state.initCart(); // Au lancement, on télécharge le panier à jour depuis Medusa
+          state.initCart();
         }
       },
     }

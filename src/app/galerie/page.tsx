@@ -20,7 +20,7 @@ const ARCHIVES = [
   { id: '07', title: 'ARCHIVE_CACHÉE', colSpan: 'md:col-span-3', aspect: 'aspect-[4/5]', mt: 'md:mt-10', src: '/galerie/07.JPG' },
   { id: '08', title: 'TISSU_TECHNIQUE', colSpan: 'md:col-span-6', aspect: 'aspect-video', mt: 'md:mt-32', src: '/galerie/08.JPG' },
   { id: '09', title: 'LIGNE_DE_TOUCHE', colSpan: 'md:col-span-3', aspect: 'aspect-square', mt: 'md:mt-0', src: '/galerie/09.JPG' },
-  { id: '10', title: 'NUMÉRO_DIX', colSpan: 'md:col-span-4', aspect: 'aspect-[3/4]', mt: 'md:mt-20', src: '/galerie/10.jpg' },
+  { id: '10', title: 'NUMÉRO_DIX', colSpan: 'md:col-span-4', aspect: 'aspect-[3/4]', mt: 'md:mt-20', src: '/galerie/10.JPG' },
   { id: '11', title: 'VESTIAIRE_VISITEUR', colSpan: 'md:col-span-8', aspect: 'aspect-[21/9]', mt: 'md:mt-40', src: '/galerie/11.JPG' },
   { id: '12', title: 'COULEURS_PRIMAIRES', colSpan: 'md:col-span-4', aspect: 'aspect-[3/4]', mt: 'md:mt-12', src: '/galerie/12.JPG' },
   { id: '13', title: 'SAISON_95', colSpan: 'md:col-span-5', aspect: 'aspect-square', mt: 'md:mt-32', src: '/galerie/13.JPG' },

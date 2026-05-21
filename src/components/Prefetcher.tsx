@@ -10,12 +10,14 @@ export default function Prefetcher() {
   const isHydrated = useCartStore((s) => s.isHydrated);
 
   useEffect(() => {
+    // Lance les deux fetches en parallèle dès le montage du layout
     fetchProducts();
   }, [fetchProducts]);
 
   useEffect(() => {
+    // initCart dépend de l'hydratation Zustand (cartId depuis localStorage)
     if (isHydrated) initCart();
   }, [isHydrated, initCart]);
 
-  return null;
+  return null; // Composant invisible
 }

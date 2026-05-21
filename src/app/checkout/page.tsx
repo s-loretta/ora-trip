@@ -59,8 +59,14 @@ type ShippingFormData = z.infer<typeof shippingSchema>
 const LUXURY_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
 const stepVariants: Variants = {
-  active: { opacity: 1, filter: "blur(0px)", scale: 1, pointerEvents: "auto", transition: { duration: 0.8, ease: LUXURY_EASE } },
-  inactive: { opacity: 0.3, filter: "blur(4px)", scale: 0.98, pointerEvents: "none", transition: { duration: 0.8, ease: LUXURY_EASE } },
+  active: { 
+    opacity: 1, filter: "blur(0px)", scale: 1, pointerEvents: "auto", 
+    transition: { duration: 0.4, ease: LUXURY_EASE } // 🚀 Réduit de 0.8 à 0.4
+  },
+  inactive: { 
+    opacity: 0.3, filter: "blur(4px)", scale: 0.98, pointerEvents: "none", 
+    transition: { duration: 0.4, ease: LUXURY_EASE } // 🚀 Réduit de 0.8 à 0.4
+  },
 }
 
 const stripeAppearance = {
@@ -130,11 +136,12 @@ export default function CheckoutPage() {
   // ✅ OPTIMISATION CLÉ : syncCartAndAddress + getShippingOptions en PARALLÈLE
   // Avant : ~800ms (séquentiel) → Après : ~400ms (parallèle)
   // Les deux appels sont indépendants côté Medusa une fois l'adresse posée
-  const onShippingSubmit = async (data: ShippingFormData) => {
+const onShippingSubmit = async (data: ShippingFormData) => {
     setIsProcessingStep(true)
     setStepError(null)
 
     try {
+      // On remet les vraies données de l'adresse (Adieu l'objet vide !)
       const formattedAddress = {
         first_name: data.firstName,
         last_name: data.lastName,
@@ -147,16 +154,22 @@ export default function CheckoutPage() {
 
       const activeCartId = medusaCartId || useCartStore.getState().cartId;
 
-      // 1. Sync adresse d'abord (requis avant shipping options)
-      const cart = await CheckoutService.syncCartAndAddress(activeCartId, formattedAddress);
+      // On rassure TypeScript : si pas de panier, on bloque tout de suite
+      if (!activeCartId) {
+        throw new Error("Impossible de trouver votre session de commande.");
+      }
+
+      // VRAI PARALLÉLISME
+      const [cart, options] = await Promise.all([
+        CheckoutService.syncCartAndAddress(activeCartId, formattedAddress),
+        CheckoutService.getShippingOptions(activeCartId) // Plus d'erreur ici !
+      ]);
+
       setMedusaCartId(cart.id);
+      setShippingOptions(options);
+      if (options?.length > 0) setSelectedShippingId(options[0].id);
 
-      // 2. Shipping options — appel unique, pas de dépendance à attendre
-      const options = await CheckoutService.getShippingOptions(cart.id)
-      setShippingOptions(options)
-      if (options?.length > 0) setSelectedShippingId(options[0].id)
-
-      setStep(2)
+      setStep(2);
     } catch (error: any) {
       setStepError(error.message)
     } finally {
@@ -164,33 +177,24 @@ export default function CheckoutPage() {
     }
   }
 
-  // ✅ OPTIMISATION : Précharger le clientSecret dès que l'option shipping est sélectionnée
-  // Au lieu de faire l'appel au clic sur "Valider", on peut le déclencher en avance
-  const isPrefetchingPayment = useRef(false)
+
   const prefetchedSecret = useRef<string | null>(null)
   const prefetchedForShippingId = useRef<string | null>(null)
-
-  useEffect(() => {
-    // Dès qu'une option shipping est sélectionnée et qu'on est à l'étape 2,
-    // on préchauffe l'appel Stripe en arrière-plan
+const prefetchPromise = useRef<Promise<string> | null>(null)
+useEffect(() => {
     if (step !== 2 || !medusaCartId || !selectedShippingId) return
-    if (prefetchedForShippingId.current === selectedShippingId) return // déjà fait
-    if (isPrefetchingPayment.current) return
+    if (prefetchedForShippingId.current === selectedShippingId) return 
 
-    isPrefetchingPayment.current = true
     prefetchedForShippingId.current = selectedShippingId
 
-    CheckoutService.initializePayment(medusaCartId, selectedShippingId)
-      .then(secret => {
-        prefetchedSecret.current = secret
-      })
+    // ✅ On stocke la promesse en cours d'exécution
+    prefetchPromise.current = CheckoutService.initializePayment(medusaCartId, selectedShippingId)
+    
+    prefetchPromise.current
+      .then(secret => { prefetchedSecret.current = secret })
       .catch(() => {
-        // Silencieux — si ça échoue ici, on réessaie au vrai clic
         prefetchedSecret.current = null
         prefetchedForShippingId.current = null
-      })
-      .finally(() => {
-        isPrefetchingPayment.current = false
       })
   }, [step, medusaCartId, selectedShippingId])
 
@@ -200,12 +204,19 @@ export default function CheckoutPage() {
     setStepError(null)
 
     try {
-      // ✅ Si le préchargement a déjà répondu → 0 latence perçue
-      const secret = prefetchedSecret.current
-        ?? await CheckoutService.initializePayment(medusaCartId, selectedShippingId)
+      // ✅ Magie : Si on a le secret, on l'utilise.
+      // Si la requête est en cours, on l'attend (au lieu d'en refaire une).
+      let secret = prefetchedSecret.current;
+      
+      if (!secret && prefetchPromise.current) {
+        secret = await prefetchPromise.current;
+      } 
+      
+      if (!secret) {
+        secret = await CheckoutService.initializePayment(medusaCartId, selectedShippingId);
+      }
 
       setClientSecret(secret)
-      prefetchedSecret.current = null // reset pour la prochaine fois
       setStep(3)
     } catch (error: any) {
       setStepError(error.message)

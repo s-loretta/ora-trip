@@ -1,11 +1,5 @@
 "use client"
-// src/app/checkout/page.tsx
-//
-// OPTIMISATIONS :
-// - stripePromise initialisé en dehors du composant (une seule fois, pas au render)
-// - Stripe SDK préchargé via <link rel="preconnect"> dans le head (voir layout.tsx)
-// - Étape 1→2 : syncCartAndAddress + getShippingOptions en parallèle avec Promise.all
-// - Suppression des re-renders inutiles
+
 
 import React, { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence, Variants } from "framer-motion"
@@ -20,8 +14,7 @@ import { CheckoutService } from "@/services/checkout.service"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 
-// ✅ Stripe initialisé UNE SEULE FOIS au niveau module (pas dans le composant)
-// Évite de recréer la promesse à chaque render
+
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY!)
 
 // --- DICTIONNAIRE DES ERREURS STRIPE ---
@@ -159,7 +152,7 @@ const onShippingSubmit = async (data: ShippingFormData) => {
         throw new Error("Impossible de trouver votre session de commande.");
       }
 
-      // VRAI PARALLÉLISME
+    
       const [cart, options] = await Promise.all([
         CheckoutService.syncCartAndAddress(activeCartId, formattedAddress),
         CheckoutService.getShippingOptions(activeCartId) // Plus d'erreur ici !
@@ -204,8 +197,7 @@ useEffect(() => {
     setStepError(null)
 
     try {
-      // ✅ Magie : Si on a le secret, on l'utilise.
-      // Si la requête est en cours, on l'attend (au lieu d'en refaire une).
+      
       let secret = prefetchedSecret.current;
       
       if (!secret && prefetchPromise.current) {
@@ -300,7 +292,7 @@ useEffect(() => {
             className="flex flex-col gap-10 origin-left"
           >
             <div className="flex justify-between items-end border-b border-light-grey/10 pb-6">
-              <h2 className="font-title text-4xl md:text-5xl italic text-white">02. Expédition</h2>
+              <h2 className="font-title text-4xl md:text-5xl italic text-white">02. Expedition</h2>
             </div>
             <AnimatePresence mode="wait">
               {step === 2 && (
@@ -319,7 +311,7 @@ useEffect(() => {
                       <ShippingOption
                         key={option.id}
                         title={option.name}
-                        delay={option.metadata?.delivery_time || "3-5 jours ouvrés"}
+                        delay={option.metadata?.delivery_time || "5-7 jours ouvrés"}
                         price={option.amount ? `${option.amount} €` : "Offert"}
                         isActive={selectedShippingId === option.id}
                         onClick={() => setSelectedShippingId(option.id)}
@@ -499,7 +491,7 @@ const StripeForm = ({ totalAmount, cartId, clientSecret }: { totalAmount: number
         disabled={!stripe || isProcessing}
         className="w-full bg-white text-dark py-6 mt-4 font-mono text-[10px] uppercase tracking-[0.5em] font-bold hover:bg-light-grey transition-colors duration-500 disabled:opacity-50"
       >
-        {isProcessing ? "TRAITEMENT SÉCURISÉ..." : `CONFIRMER L'ACQUISITION — ${totalAmount} €`}
+        {isProcessing ? "TRAITEMENT SÉCURISE..." : `CONFIRMER L'ACQUISITION — ${totalAmount} €`}
       </button>
     </form>
   )

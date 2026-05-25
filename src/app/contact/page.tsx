@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useForm } from 'react-hook-form';
-import emailjs from '@emailjs/browser'; // Ajout de l'import EmailJS
+import emailjs from '@emailjs/browser'; 
 import Link from 'next/link';
 
 // 1. Définition des types pour le formulaire
@@ -41,18 +41,19 @@ const ContactPage = () => {
     if (data.address_secondary) return; // Honeypot
     
     try {
-      // On récupère les variables d'environnement
-      // Le " || '' " permet de rassurer TypeScript au cas où la variable serait undefined
       const serviceID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '';
       const templateID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || '';
       const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '';
 
+      // ⚡️ AJUSTEMENT ICI : On fait correspondre exactement à ton Dashboard EmailJS
       const templateParams = {
         name: data.name,
         email: data.email,
-        subject: data.subject,
-        orderNumber: data.orderNumber || "Non applicable",
-        message: data.message,
+        title: data.subject, // Ton template attend {{title}}
+        // Si c'est une commande, on intègre le numéro au début du message
+        message: data.orderNumber 
+          ? `[Concerne la commande : ${data.orderNumber}]\n\n${data.message}`
+          : data.message,
       };
 
       await emailjs.send(serviceID, templateID, templateParams, publicKey);
@@ -76,7 +77,7 @@ const ContactPage = () => {
       y: 0, 
       transition: { 
         duration: 0.8, 
-        ease: [0.16, 1, 0.3, 1] as any // Cast "as any" car Motion est strict sur les tableaux de nombres
+        ease: [0.16, 1, 0.3, 1] as any 
       } 
     }
   };
@@ -107,25 +108,19 @@ const ContactPage = () => {
               <div className="flex flex-col gap-1 group cursor-pointer">
                 <span className="text-[10px] tracking-[0.4em] uppercase text-white/40">Email</span>
                 <a href="mailto:contact@oratrip.fr" className="group">
-  <span className="text-white tracking-widest transition-transform duration-300 inline-block group-hover:translate-x-2">
-    contact@oratrip.fr
-  </span>
-</a>
+                  <span className="text-white tracking-widest transition-transform duration-300 inline-block group-hover:translate-x-2">
+                    contact@oratrip.fr
+                  </span>
+                </a>
               </div>
               <div className="flex flex-col gap-1 group cursor-pointer">
                 <span className="text-[10px] tracking-[0.4em] uppercase text-white/40">Instagram</span>
-              <a 
-  href="https://www.instagram.com/oratripfr" 
-  target="_blank" 
-  rel="noopener noreferrer"
-  className="group flex items-center"
->
-  <span className="text-white tracking-widest transition-transform duration-300 group-hover:translate-x-2">
-    @oratripfr
-  </span>
-</a>
+                <a href="https://www.instagram.com/oratripfr" target="_blank" rel="noopener noreferrer" className="group flex items-center">
+                  <span className="text-white tracking-widest transition-transform duration-300 group-hover:translate-x-2">
+                    @oratripfr
+                  </span>
+                </a>
               </div>
-              
             </div>
           </motion.div>
         </motion.div>
@@ -238,7 +233,7 @@ const ContactPage = () => {
                     </span>
                   </div>
                   <textarea 
-                    rows={4} // Correction : Nombre au lieu de String
+                    rows={4} 
                     {...register("message", { 
                       required: "Le vestiaire attend votre message.",
                       maxLength: { value: 2000, message: "Maximum 2000 caractères." }
@@ -276,13 +271,13 @@ const ContactPage = () => {
               >
                 <h3 className="font-title text-5xl tracking-widest text-white italic">BIEN REÇU.</h3>
                 <p className="text-light-grey/80 leading-relaxed font-light border-l border-white/20 pl-6 max-w-sm">
-                  Votre message a été envoyé avec succès. Notre équipe reviendra vers vous dès que la prochaine session d'analyse commencera.
+                  Votre message a été envoyé avec succès.
                 </p>
                 <button 
                   onClick={() => window.location.reload()} 
                   className="text-[10px] tracking-[0.4em] uppercase text-white/40 hover:text-white transition-colors mt-4"
                 >
-                  [ Nouvelle Transmission ]
+                  Envoyez le mail
                 </button>
               </motion.div>
             )}

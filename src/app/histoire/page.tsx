@@ -376,7 +376,7 @@ const Page = () => {
 
           <div className="flex flex-col gap-12 text-center items-center pb-32">
              <p className="text-xl leading-relaxed max-w-2xl">
-               ORA TRIP est un voyage à travers les âmes, les époques et les cultures. Une marque qui transforme le maillot en <span className="text-white underline underline-offset-8 decoration-white/20">langage visuel</span>.
+               ORA TRIP est un voyage à travers les âmes, les epoques et les cultures. Une marque qui transforme le maillot en <span className="text-white underline underline-offset-8 decoration-white/20">langage visuel</span>.
              </p>
              <motion.div 
                initial={{ scale: 0.8, opacity: 0 }}
@@ -386,7 +386,7 @@ const Page = () => {
                 <div className="h-20 w-[1px] bg-gradient-to-b from-transparent to-white/40" />
                 <span className="font-title text-2xl md:text-4xl tracking-widest uppercase">
                   Parce que tout le monde a une histoire <br /> 
-                  <span className="italic opacity-60">qui mérite d'être racontée.</span>
+                  <span className="italic opacity-60">qui merite d'être racontee.</span>
                 </span>
              </motion.div>
           </div>

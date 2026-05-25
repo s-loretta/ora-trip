@@ -28,8 +28,9 @@ export default function Home() {
         <div className="absolute inset-0 bg-black/30" />
       </div>
 
-      {/* 2. Le contenu par-dessus (SANS AUCUNE MODIFICATION DE HAUTEUR) */}
-      <div className="relative z-10 flex h-full flex-col items-center justify-center">
+      {/* 2. Le contenu par-dessus */}
+      {/* ⚡️ AJOUT : pt-32 sur mobile pour baisser le bouton, md:pt-0 pour l'annuler sur PC ⚡️ */}
+      <div className="relative z-10 flex h-full flex-col items-center justify-center pt-48 md:pt-0">
         
         {/* Ton bouton avec la police IBM Plex Mono */}
         <Link href="/shop">  

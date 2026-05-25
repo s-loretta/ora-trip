@@ -160,7 +160,7 @@ const ProductArchive = () => {
   );
 };
 
-// --- SOUS-COMPOSANTS (INTOUCHÉS VISUELLEMENT) ---
+// --- SOUS-COMPOSANTS (AJUSTÉS POUR LE MOBILE) ---
 
 const BackgroundText = ({ jersey, index, total, progress }: { jersey: Jersey, index: number, total: number, progress: MotionValue<number> }) => {
   const y = useTransform(progress, p => `${getRelativeDistance(p, index, total) * -20}vh`);
@@ -190,7 +190,8 @@ const JerseyImage = ({ jersey, index, total, progress }: { jersey: Jersey, index
   return (
     <motion.div 
       style={{ y, scale, filter }}
-      className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"
+      // ⚡️ AJOUT : pb-32 sur mobile pour remonter l'image, md:pb-0 pour l'annuler sur PC
+      className="absolute inset-0 flex items-center justify-center pb-32 md:pb-0 z-10 pointer-events-none"
     >
       <img
         src={jersey.image}
@@ -209,7 +210,8 @@ const JerseyUI = ({ jersey, index, total, progress }: { jersey: Jersey, index: n
   return (
     <motion.div 
       style={{ opacity, y, pointerEvents: pointerEvents as any }}
-      className="absolute bottom-12 left-6 right-6 md:left-20 md:right-20 flex flex-col gap-8 z-20"
+      // ⚡️ MODIFICATION : bottom-28 sur mobile pour remonter le bloc entier, md:bottom-12 sur PC
+      className="absolute bottom-28 md:bottom-12 left-6 right-6 md:left-20 md:right-20 flex flex-col gap-8 z-20"
     >
       <div className="w-full border-b border-[#C3C3C3]/10 pb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div className="flex flex-col gap-2">

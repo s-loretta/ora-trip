@@ -280,7 +280,7 @@ useEffect(() => {
                 className="group relative inline-flex items-center gap-6 cursor-pointer w-max disabled:opacity-50"
               >
                 <span className="font-title text-2xl tracking-widest text-white group-hover:italic transition-all duration-500">
-                  {isProcessingStep ? "VÉRIFICATION..." : "VALIDER L'ADRESSE"}
+                  {isProcessingStep ? "VERIFICATION..." : "VALIDER L'ADRESSE"}
                 </span>
                 <motion.div
                   initial={{ width: "2rem" }}
@@ -335,7 +335,7 @@ useEffect(() => {
                     className="group relative inline-flex items-center gap-6 cursor-pointer w-max mt-8 disabled:opacity-50"
                   >
                     <span className="font-title text-2xl tracking-widest text-white group-hover:italic transition-all duration-500">
-                      {isProcessingStep ? "SÉCURISATION..." : "VALIDER L'EXPÉDITION"}
+                      {isProcessingStep ? "SÉCURISATION..." : "VALIDER L'EXPEDITION"}
                     </span>
                     <motion.div
                       initial={{ width: "2rem" }}
@@ -368,7 +368,7 @@ useEffect(() => {
                   className="flex flex-col gap-10"
                 >
                   <p className="text-[10px] tracking-widest uppercase text-light-grey/60">
-                    Transaction cryptée via Stripe.
+                    Transaction cryptee via Stripe.
                   </p>
                   <Elements
                     key={clientSecret}

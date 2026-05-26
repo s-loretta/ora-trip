@@ -3,12 +3,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, useTransform, MotionValue, useMotionValue, animate } from 'framer-motion';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useProductStore } from '@/store/useProductStore';
 
-// On garde ton interface, on ajoute juste le "realId" pour le lien Medusa
 interface Jersey {
-  id: string;      // Ex: "01", "02" (Pour l'esthétique UI)
-  realId: string;  // L'ID unique Medusa (Pour naviguer)
+  id: string;
+  realId: string;
   name: string;
   year: string;
   culture: string;
@@ -16,7 +16,6 @@ interface Jersey {
   inspiration: string;
 }
 
-// --- LOGIQUE MATHÉMATIQUE DE LA BOUCLE (INTOUCHÉE) ---
 const getRelativeDistance = (progress: number, index: number, total: number) => {
   const dist = progress - index;
   let relativeDist = ((dist % total) + total) % total;
@@ -27,20 +26,17 @@ const getRelativeDistance = (progress: number, index: number, total: number) => 
 const ProductArchive = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // --- NOUVEAU : CONNEXION AU BACKEND ---
   const { products, isLoading, fetchProducts } = useProductStore();
 
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
 
-  // --- MOTEUR DE SCROLL (INTOUCHÉ) ---
   const animateProgress = useMotionValue(0);
   const activeIndex = useRef(0);
   const isAnimating = useRef(false);
   const [displayIndex, setDisplayIndex] = useState(1);
   
-  // On crée notre tableau dynamiquement à partir des données Medusa
   const dynamicJerseys: Jersey[] = products.map((product, index) => ({
     id: String(index + 1).padStart(2, '0'),
     realId: product.id,
@@ -57,10 +53,8 @@ const ProductArchive = () => {
     if (containerRef.current) {
       containerRef.current.scrollTop = window.innerHeight * 5;
     }
-  }, [total]); // On réinitialise si le total change
+  }, [total]);
 
-  // --- ÉCRAN DE CHARGEMENT MINIMALISTE ---
-  // Indispensable car la logique mathématique crashe si total === 0
   if (isLoading || total === 0) {
     return (
       <div className="bg-[#131313] h-screen w-full flex items-center justify-center">
@@ -160,7 +154,6 @@ const ProductArchive = () => {
   );
 };
 
-// --- SOUS-COMPOSANTS (AJUSTÉS POUR LE MOBILE) ---
 
 const BackgroundText = ({ jersey, index, total, progress }: { jersey: Jersey, index: number, total: number, progress: MotionValue<number> }) => {
   const y = useTransform(progress, p => `${getRelativeDistance(p, index, total) * -20}vh`);
@@ -190,12 +183,14 @@ const JerseyImage = ({ jersey, index, total, progress }: { jersey: Jersey, index
   return (
     <motion.div 
       style={{ y, scale, filter }}
-      // ⚡️ AJOUT : pb-32 sur mobile pour remonter l'image, md:pb-0 pour l'annuler sur PC
       className="absolute inset-0 flex items-center justify-center pb-32 md:pb-0 z-10 pointer-events-none"
     >
-      <img
+      <Image
         src={jersey.image}
         alt={jersey.name}
+        width={800}
+        height={1000}
+        priority={index === 0}
         className="h-[60vh] w-auto object-contain drop-shadow-2xl"
       />
     </motion.div>
@@ -210,7 +205,6 @@ const JerseyUI = ({ jersey, index, total, progress }: { jersey: Jersey, index: n
   return (
     <motion.div 
       style={{ opacity, y, pointerEvents: pointerEvents as any }}
-      // ⚡️ MODIFICATION : bottom-28 sur mobile pour remonter le bloc entier, md:bottom-12 sur PC
       className="absolute bottom-28 md:bottom-12 left-6 right-6 md:left-20 md:right-20 flex flex-col gap-8 z-20"
     >
       <div className="w-full border-b border-[#C3C3C3]/10 pb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
@@ -220,8 +214,8 @@ const JerseyUI = ({ jersey, index, total, progress }: { jersey: Jersey, index: n
         </div>
         <div className="max-w-xs">
           <p className="hidden md:block font-mono text-[11px] leading-relaxed text-[#C3C3C3]/60 italic border-l border-[#C3C3C3]/10 pl-4">
-  "{jersey.inspiration}"
-</p>
+            "{jersey.inspiration}"
+          </p>
         </div>
       </div>
 
@@ -237,7 +231,6 @@ const JerseyUI = ({ jersey, index, total, progress }: { jersey: Jersey, index: n
           </div>
         </div>
 
-        {/* Le bouton est devenu un Link qui pointe vers la fiche produit Medusa */}
         <Link 
           href={`/shop/${jersey.realId}`}
           className="group relative overflow-hidden bg-white text-[#131313] px-12 py-4 flex items-center gap-4 transition-all duration-500 hover:pr-16 cursor-pointer inline-flex"

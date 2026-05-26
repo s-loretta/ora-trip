@@ -41,6 +41,8 @@ export default function RootLayout({
         <link rel="preconnect" href="https://js.stripe.com" />
         <link rel="preconnect" href="https://api.stripe.com" />
         <link rel="dns-prefetch" href="https://js.stripe.com" />
+        <link rel="preconnect" href="https://pub-e56a1544e7114f1a8d7a3186235650e0.r2.dev" />
+<link rel="dns-prefetch" href="https://pub-e56a1544e7114f1a8d7a3186235650e0.r2.dev" />
         {/* Preconnect Railway (backend Medusa) */}
         <link rel="preconnect" href={process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL} />
         <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL} />

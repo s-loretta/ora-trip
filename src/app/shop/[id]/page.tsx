@@ -332,7 +332,7 @@ export default function PiecePage({ params }: PageProps) {
                 <div className="absolute bottom-0 left-0 w-full h-px bg-light-grey/10" />
                 <motion.div className="absolute inset-0 bg-white z-0 origin-left" initial={{ scaleX: 0 }} variants={{ hover: { scaleX: 1, transition: luxurySpring } }} />
                 <span className="font-mono text-[10px] tracking-widest uppercase relative z-10 transition-colors duration-500 group-hover:text-dark text-white">
-                  {piece.maxAllocation === 0 ? "Sold out" : "Ajouter au Panier"}
+                  {piece.maxAllocation === 0 ? "Bientot disponible" : "Ajouter au Panier"}
                 </span>
                 <motion.div className="relative z-10 flex items-center text-white group-hover:text-dark transition-colors duration-500" variants={{ hover: { x: 10, transition: luxurySpring } }}>
                   <span className="w-8 h-px bg-current mr-2" />

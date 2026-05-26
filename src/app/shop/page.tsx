@@ -219,9 +219,9 @@ const JerseyUI = ({ jersey, index, total, progress }: { jersey: Jersey, index: n
           <h3 className="font-title text-4xl md:text-6xl text-white italic leading-none">{jersey.name}</h3>
         </div>
         <div className="max-w-xs">
-          <p className="font-mono text-[11px] leading-relaxed text-[#C3C3C3]/60 italic border-l border-[#C3C3C3]/10 pl-4">
-            "{jersey.inspiration}"
-          </p>
+          <p className="hidden md:block font-mono text-[11px] leading-relaxed text-[#C3C3C3]/60 italic border-l border-[#C3C3C3]/10 pl-4">
+  "{jersey.inspiration}"
+</p>
         </div>
       </div>
 

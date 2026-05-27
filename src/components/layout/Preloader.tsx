@@ -49,7 +49,7 @@ export default function Preloader() {
           >
             {/* Logo */}
             <div className="w-16 h-16 mb-4 opacity-80">
-               <img src="/logo.jpg" alt="Logo" className="w-full h-full object-contain" />
+               <img src="/image0.jpeg" alt="Logo" className="w-full h-full object-contain" />
             </div>
 
             {/* Texte Tagline */}

@@ -135,10 +135,17 @@ const handleAcquisition = async () => {
 
   openCart();
 
+  const cleanString = piece.value.toString().replace(/[^0-9.,]/g, "").replace(",", ".");
+  let finalPrice = parseFloat(cleanString);
+
+  if (isNaN(finalPrice)) {
+    finalPrice = 0;
+  }
+
   const optimisticData = {
     title: piece.title,
     variantTitle: selectedFormat.name,
-    unitPrice: Number(piece.value),
+    unitPrice: finalPrice,
     thumbnail: piece.images[0],
   };
 

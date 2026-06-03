@@ -130,11 +130,20 @@ export default function PiecePage({ params }: PageProps) {
     }
   };
 
-  const handleAcquisition = async () => {
-    if (!piece || !selectedFormat) return;
-    openCart(); // Ouvre instantanément
-    await addToCart(selectedFormat.id, allocation); // Sauvegarde en arrière-plan
+const handleAcquisition = async () => {
+  if (!piece || !selectedFormat) return;
+
+  openCart();
+
+  const optimisticData = {
+    title: piece.title,
+    variantTitle: selectedFormat.name,
+    unitPrice: Number(piece.value),
+    thumbnail: piece.images[0],
   };
+
+  await addToCart(selectedFormat.id, allocation, optimisticData);
+};
 
   return (
     <main ref={containerRef} className="relative w-full bg-dark text-light-grey selection:bg-white selection:text-dark min-h-screen">

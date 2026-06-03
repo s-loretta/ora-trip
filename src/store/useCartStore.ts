@@ -21,7 +21,7 @@ interface CartState {
 
   setHydrated: (state: boolean) => void
   initCart: () => Promise<void>
-  addToCart: (variantId: string, quantity: number) => Promise<void>
+  addToCart: (variantId: string, quantity: number, optimisticData?: Omit<CartItem, 'id' | 'variantId' | 'quantity'>) => Promise<void>
   updateQuantity: (lineItemId: string, quantity: number) => Promise<void>
   removeFromCart: (lineItemId: string) => Promise<void>
   clearCart: () => void
@@ -99,30 +99,45 @@ export const useCartStore = create<CartState>()(
       },
 
       // 🛒 2. AJOUTER AU PANIER
-      addToCart: async (variantId: string, quantity: number) => {
-        try {
-          set({ isLoading: true });
-          let { cartId } = get();
+      addToCart: async (variantId: string, quantity: number, optimisticData?: Omit<CartItem, 'id' | 'variantId' | 'quantity'>) => {
+  const { cartId, items } = get();
+  const tempId = `temp-${Date.now()}`;
 
-          if (!cartId) {
-            const { cart } = await sdk.store.cart.create({});
-            cartId = cart.id;
-            set({ cartId });
-          }
+  if (optimisticData) {
+    const optimisticItem: CartItem = {
+      id: tempId,
+      variantId,
+      quantity,
+      ...optimisticData,
+    };
+    set({ items: [...items, optimisticItem], isLoading: false });
+  } else {
+    set({ isLoading: true });
+  }
 
-          const { cart } = await sdk.store.cart.createLineItem(cartId, {
-            variant_id: variantId,
-            quantity: quantity,
-          }, {
-            fields: "+items.*,+items.variant.*,+items.variant.product.*"
-          });
+  try {
+    let currentCartId = cartId;
 
-          set({ items: formatCartItems(cart.items), isLoading: false });
-        } catch (error) {
-          console.error("Erreur d'ajout au panier:", error);
-          set({ isLoading: false });
-        }
-      },
+    if (!currentCartId) {
+      const { cart } = await sdk.store.cart.create({});
+      currentCartId = cart.id;
+      set({ cartId: currentCartId });
+    }
+
+    const { cart } = await sdk.store.cart.createLineItem(
+      currentCartId,
+      { variant_id: variantId, quantity },
+      { fields: "+items.*,+items.variant.*,+items.variant.product.*" }
+    );
+
+    set({ items: formatCartItems(cart.items), isLoading: false });
+  } catch (error) {
+    if (optimisticData) {
+      set({ items: items.filter((item) => item.id !== tempId) });
+    }
+    set({ isLoading: false });
+  }
+},
 
       // ✅ FIX : Optimistic UI sans race condition + debounce réseau
       updateQuantity: async (lineItemId: string, quantity: number) => {

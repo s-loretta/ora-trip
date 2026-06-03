@@ -304,21 +304,33 @@ const handleAcquisition = async () => {
               </div>
 
               <div className="overflow-hidden">
-                <motion.div variants={textReveal} className="flex flex-col gap-4">
-                  <span className="font-mono text-[10px] tracking-widest uppercase text-light-grey/60">Quantite</span>
-                  <div className="flex items-center gap-6 font-mono text-[10px] tracking-widest text-white">
-                    <button onClick={decreaseAllocation} disabled={allocation <= 1} className={`pb-1 transition-colors ${allocation <= 1 ? "text-light-grey/20 cursor-not-allowed" : "text-light-grey/60 hover:text-white"}`}>−</button>
-                    <div className="w-4 h-4 overflow-hidden relative flex items-center justify-center">
-                      <AnimatePresence mode="popLayout">
-                        <motion.span key={allocation} initial={{ y: 15, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -15, opacity: 0 }} transition={luxurySpring} className="absolute">
-                          {allocation}
-                        </motion.span>
-                      </AnimatePresence>
-                    </div>
-                    <button onClick={increaseAllocation} disabled={!selectedFormat || allocation >= selectedFormat.stock} className={`pb-1 transition-colors ${!selectedFormat || allocation >= selectedFormat.stock ? "text-light-grey/20 cursor-not-allowed" : "text-light-grey/60 hover:text-white"}`}>+</button>
-                  </div>
-                </motion.div>
-              </div>
+  <motion.div variants={textReveal} className="flex flex-col gap-4">
+    
+    <div className="flex justify-between items-center w-full">
+      <span className="font-mono text-[10px] tracking-widest uppercase text-light-grey/60">Quantite</span>
+      
+      {/* Affichage conditionnel du stock */}
+      {selectedFormat && selectedFormat.stock <= 5 && selectedFormat.stock > 0 && (
+        <span className="font-mono text-[10px] tracking-widest uppercase text-red-500">
+          Plus que {selectedFormat.stock} exemplaire(s)
+        </span>
+      )}
+    </div>
+
+    <div className="flex items-center gap-6 font-mono text-[10px] tracking-widest text-white">
+      <button onClick={decreaseAllocation} disabled={allocation <= 1} className={`pb-1 transition-colors ${allocation <= 1 ? "text-light-grey/20 cursor-not-allowed" : "text-light-grey/60 hover:text-white"}`}>−</button>
+      <div className="w-4 h-4 overflow-hidden relative flex items-center justify-center">
+        <AnimatePresence mode="popLayout">
+          <motion.span key={allocation} initial={{ y: 15, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -15, opacity: 0 }} transition={luxurySpring} className="absolute">
+            {allocation}
+          </motion.span>
+        </AnimatePresence>
+      </div>
+      <button onClick={increaseAllocation} disabled={!selectedFormat || allocation >= selectedFormat.stock} className={`pb-1 transition-colors ${!selectedFormat || allocation >= selectedFormat.stock ? "text-light-grey/20 cursor-not-allowed" : "text-light-grey/60 hover:text-white"}`}>+</button>
+    </div>
+
+  </motion.div>
+</div>
             </div>
 
             <div className="flex flex-col gap-4 mb-16">
@@ -337,24 +349,24 @@ const handleAcquisition = async () => {
             </div>
 
             <div className="overflow-hidden">
-              <motion.button
-                variants={textReveal}
-                whileHover="hover"
-                onClick={handleAcquisition}
-                disabled={piece.maxAllocation === 0}
-                className="w-full relative py-6 flex items-center justify-between group overflow-hidden cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <div className="absolute top-0 left-0 w-full h-px bg-light-grey/10" />
-                <div className="absolute bottom-0 left-0 w-full h-px bg-light-grey/10" />
-                <motion.div className="absolute inset-0 bg-white z-0 origin-left" initial={{ scaleX: 0 }} variants={{ hover: { scaleX: 1, transition: luxurySpring } }} />
-                <span className="font-mono text-[10px] tracking-widest uppercase relative z-10 transition-colors duration-500 group-hover:text-dark text-white">
-                  {piece.maxAllocation === 0 ? "Bientot disponible" : "Ajouter au Panier"}
-                </span>
-                <motion.div className="relative z-10 flex items-center text-white group-hover:text-dark transition-colors duration-500" variants={{ hover: { x: 10, transition: luxurySpring } }}>
-                  <span className="w-8 h-px bg-current mr-2" />
-                  <span className="border-t border-r border-current p-1 rotate-45 transform" />
-                </motion.div>
-              </motion.button>
+             <motion.button
+  variants={textReveal}
+  whileHover="hover"
+  onClick={handleAcquisition}
+  disabled={!selectedFormat || selectedFormat.stock === 0}
+  className="w-full relative py-6 flex items-center justify-between group overflow-hidden cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  <div className="absolute top-0 left-0 w-full h-px bg-light-grey/10" />
+  <div className="absolute bottom-0 left-0 w-full h-px bg-light-grey/10" />
+  <motion.div className="absolute inset-0 bg-white z-0 origin-left" initial={{ scaleX: 0 }} variants={{ hover: { scaleX: 1, transition: luxurySpring } }} />
+  <span className="font-mono text-[10px] tracking-widest uppercase relative z-10 transition-colors duration-500 group-hover:text-dark text-white">
+    {!selectedFormat || selectedFormat.stock === 0 ? "Rupture de stock" : "Ajouter au Panier"}
+  </span>
+  <motion.div className="relative z-10 flex items-center text-white group-hover:text-dark transition-colors duration-500" variants={{ hover: { x: 10, transition: luxurySpring } }}>
+    <span className="w-8 h-px bg-current mr-2" />
+    <span className="border-t border-r border-current p-1 rotate-45 transform" />
+  </motion.div>
+</motion.button>
             </div>
 
           </motion.div>

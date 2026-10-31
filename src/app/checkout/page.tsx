@@ -90,33 +90,19 @@ export default function CheckoutPage() {
   const subtotal = getCartTotal()
   const selectedOption = shippingOptions.find(o => o.id === selectedShippingId)
   const shippingCost = selectedOption ? (selectedOption.amount ?? 0) : 0
-  const total = subtotal + shippingCost
-
+  
+  const [serverTotal, setServerTotal] = useState<number | null>(null)
+  const total = serverTotal !== null ? serverTotal : (subtotal + shippingCost)
+  
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ShippingFormData>({
     resolver: zodResolver(shippingSchema),
     defaultValues: {
-      email: customer?.email || '',
-      firstName: customer?.first_name || '',
-      lastName: customer?.last_name || '',
-      phone: customer?.phone || '',
+      email: '',
+      firstName: '',
+      lastName: '',
+      phone: '',
     }
   });
-
-  useEffect(() => {
-    if (isAuthenticated && customer?.addresses?.length) {
-      const savedAddress = customer.addresses[0];
-      reset({
-        email: customer.email || '',
-        firstName: savedAddress.first_name || customer.first_name || '',
-        lastName: savedAddress.last_name || customer.last_name || '',
-        phone: savedAddress.phone || customer.phone || '',
-        address: savedAddress.address_1 || '',
-        city: savedAddress.city || '',
-        postalCode: savedAddress.postal_code || '',
-        country: savedAddress.country_code?.toUpperCase() || '',
-      });
-    }
-  }, [isAuthenticated, customer, reset]);
 
   useEffect(() => {
     if (isHydrated && items.length === 0) router.push("/galerie")
@@ -126,48 +112,49 @@ export default function CheckoutPage() {
     if (isHydrated && !isAuthenticated) router.push("/connexion?redirect=/checkout")
   }, [isHydrated, isAuthenticated, router])
 
-const onShippingSubmit = async (data: ShippingFormData) => {
-  setIsProcessingStep(true);
-  setStepError(null);
+  const onShippingSubmit = async (data: ShippingFormData) => {
+    setIsProcessingStep(true);
+    setStepError(null);
 
-  try {
-    const formattedAddress = {
-      first_name: data.firstName,
-      last_name: data.lastName,
-      address_1: data.address,
-      city: data.city,
-      postal_code: data.postalCode,
-      country_code: data.country.toLowerCase().slice(0, 2),
-      email: data.email,
-    };
+    try {
+      const formattedAddress = {
+        first_name: data.firstName,
+        last_name: data.lastName,
+        address_1: data.address,
+        city: data.city,
+        postal_code: data.postalCode,
+        country_code: data.country.toLowerCase().slice(0, 2),
+        email: data.email,
+      };
 
-    const activeCartId = medusaCartId || useCartStore.getState().cartId;
+      const activeCartId = medusaCartId || useCartStore.getState().cartId;
 
-    if (!activeCartId) {
-      throw new Error("Impossible de trouver votre session de commande.");
+      if (!activeCartId) {
+        throw new Error("Impossible de trouver votre session de commande.");
+      }
+
+      const cart = await CheckoutService.syncCartAndAddress(activeCartId, formattedAddress);
+      const options = await CheckoutService.getShippingOptions(activeCartId);
+
+      setMedusaCartId(cart.id);
+      setShippingOptions(options);
+      
+      if (options?.length > 0) setSelectedShippingId(options[0].id);
+
+      setStep(2);
+    } catch (error: any) {
+      setStepError(error.message);
+    } finally {
+      setIsProcessingStep(false);
     }
-
-    const cart = await CheckoutService.syncCartAndAddress(activeCartId, formattedAddress);
-    const options = await CheckoutService.getShippingOptions(activeCartId);
-
-    setMedusaCartId(cart.id);
-    setShippingOptions(options);
-    
-    if (options?.length > 0) setSelectedShippingId(options[0].id);
-
-    setStep(2);
-  } catch (error: any) {
-    setStepError(error.message);
-  } finally {
-    setIsProcessingStep(false);
   }
-}
 
 
   const prefetchedSecret = useRef<string | null>(null)
   const prefetchedForShippingId = useRef<string | null>(null)
-const prefetchPromise = useRef<Promise<string> | null>(null)
-useEffect(() => {
+  const prefetchPromise = useRef<Promise<string> | null>(null)
+  
+  useEffect(() => {
     if (step !== 2 || !medusaCartId || !selectedShippingId) return
     if (prefetchedForShippingId.current === selectedShippingId) return 
 
@@ -190,7 +177,6 @@ useEffect(() => {
     setStepError(null)
 
     try {
-      
       let secret = prefetchedSecret.current;
       
       if (!secret && prefetchPromise.current) {
@@ -202,6 +188,12 @@ useEffect(() => {
       }
 
       setClientSecret(secret)
+      
+      // ✅ Mise à jour de l'affichage du total avec le montant de l'option choisie
+      if (selectedOption && selectedOption.amount != null) {
+        setServerTotal(subtotal + (selectedOption.amount / 100)); // Division par 100 si le prix Medusa est en centimes. Enlever le /100 s'il est déjà en euros.
+      }
+      
       setStep(3)
     } catch (error: any) {
       setStepError(error.message)

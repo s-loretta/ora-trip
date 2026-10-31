@@ -126,7 +126,7 @@ const Page = () => {
       {/* --- HERO --- */}
       <section className="flex items-center justify-center h-screen w-screen relative">
         <div className="flex flex-col items-center gap-6">
-          <motion.img initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1.5 }} src="/logo.jpg" alt="Logo" className="h-30 w-auto" />
+          <motion.img initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1.5 }} src="/logo2.png" alt="Logo" className="h-30 w-auto" />
           <p className="font-title text-light-grey tracking-[0.3em] text-center text-2xl flex items-center justify-center flex-wrap italic">
             <span>{staticText}</span>
             <span className="relative">{animatedText.slice(0, currentIndex)}<motion.span animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 0.8 }} className="inline-block h-6 w-[1px] bg-light-grey ml-1 align-middle" /></span>
@@ -386,7 +386,7 @@ const Page = () => {
                 <div className="h-20 w-[1px] bg-gradient-to-b from-transparent to-white/40" />
                 <span className="font-title text-2xl md:text-4xl tracking-widest uppercase">
                   Parce que tout le monde a une histoire <br /> 
-                  <span className="italic opacity-60">qui merite d'être racontee.</span>
+                  <span className="italic opacity-60">qui merite d'etre racontee.</span>
                 </span>
              </motion.div>
           </div>

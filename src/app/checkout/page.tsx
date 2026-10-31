@@ -126,49 +126,42 @@ export default function CheckoutPage() {
     if (isHydrated && !isAuthenticated) router.push("/connexion?redirect=/checkout")
   }, [isHydrated, isAuthenticated, router])
 
-  // ✅ OPTIMISATION CLÉ : syncCartAndAddress + getShippingOptions en PARALLÈLE
-  // Avant : ~800ms (séquentiel) → Après : ~400ms (parallèle)
-  // Les deux appels sont indépendants côté Medusa une fois l'adresse posée
 const onShippingSubmit = async (data: ShippingFormData) => {
-    setIsProcessingStep(true)
-    setStepError(null)
+  setIsProcessingStep(true);
+  setStepError(null);
 
-    try {
-      // On remet les vraies données de l'adresse (Adieu l'objet vide !)
-      const formattedAddress = {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        address_1: data.address,
-        city: data.city,
-        postal_code: data.postalCode,
-        country_code: data.country.toLowerCase().slice(0, 2),
-        email: data.email,
-      }
+  try {
+    const formattedAddress = {
+      first_name: data.firstName,
+      last_name: data.lastName,
+      address_1: data.address,
+      city: data.city,
+      postal_code: data.postalCode,
+      country_code: data.country.toLowerCase().slice(0, 2),
+      email: data.email,
+    };
 
-      const activeCartId = medusaCartId || useCartStore.getState().cartId;
+    const activeCartId = medusaCartId || useCartStore.getState().cartId;
 
-      // On rassure TypeScript : si pas de panier, on bloque tout de suite
-      if (!activeCartId) {
-        throw new Error("Impossible de trouver votre session de commande.");
-      }
-
-    
-      const [cart, options] = await Promise.all([
-        CheckoutService.syncCartAndAddress(activeCartId, formattedAddress),
-        CheckoutService.getShippingOptions(activeCartId) // Plus d'erreur ici !
-      ]);
-
-      setMedusaCartId(cart.id);
-      setShippingOptions(options);
-      if (options?.length > 0) setSelectedShippingId(options[0].id);
-
-      setStep(2);
-    } catch (error: any) {
-      setStepError(error.message)
-    } finally {
-      setIsProcessingStep(false)
+    if (!activeCartId) {
+      throw new Error("Impossible de trouver votre session de commande.");
     }
+
+    const cart = await CheckoutService.syncCartAndAddress(activeCartId, formattedAddress);
+    const options = await CheckoutService.getShippingOptions(activeCartId);
+
+    setMedusaCartId(cart.id);
+    setShippingOptions(options);
+    
+    if (options?.length > 0) setSelectedShippingId(options[0].id);
+
+    setStep(2);
+  } catch (error: any) {
+    setStepError(error.message);
+  } finally {
+    setIsProcessingStep(false);
   }
+}
 
 
   const prefetchedSecret = useRef<string | null>(null)

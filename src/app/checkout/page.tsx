@@ -189,9 +189,8 @@ export default function CheckoutPage() {
 
       setClientSecret(secret)
       
-      // ✅ Mise à jour de l'affichage du total avec le montant de l'option choisie
       if (selectedOption && selectedOption.amount != null) {
-        setServerTotal(subtotal + (selectedOption.amount / 100)); // Division par 100 si le prix Medusa est en centimes. Enlever le /100 s'il est déjà en euros.
+        setServerTotal(subtotal + (selectedOption.amount)); 
       }
       
       setStep(3)
@@ -369,7 +368,7 @@ export default function CheckoutPage() {
         <div className="lg:col-span-5 relative">
           <div className="sticky top-40 flex flex-col gap-10 border border-light-grey/10 p-8 md:p-12 bg-dark z-10">
             <span className="text-[10px] tracking-[0.4em] uppercase text-light-grey/40 border-b border-light-grey/10 pb-6">
-              Votre Archive ({items.length})
+              Votre commande ({items.length})
             </span>
             <div className="flex flex-col gap-8 max-h-[40vh] overflow-y-auto no-scrollbar">
               {items.map((item) => (

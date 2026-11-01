@@ -338,10 +338,10 @@ export default function CheckoutPage() {
             <AnimatePresence mode="wait">
               {step === 3 && clientSecret && (
                 <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  transition={{ duration: 0.8, ease: LUXURY_EASE }}
-                  className="flex flex-col gap-10"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: LUXURY_EASE }}
+                  className="flex flex-col gap-10 min-h-[300px]"
                 >
                   <p className="text-[10px] tracking-widest uppercase text-light-grey/60">
                     Transaction cryptee via Stripe.
@@ -475,13 +475,12 @@ const StripeForm = ({ totalAmount, cartId, clientSecret }: { totalAmount: number
         disabled={!stripe || isProcessing}
         className="w-full bg-white text-dark py-6 mt-4 font-mono text-[10px] uppercase tracking-[0.5em] font-bold hover:bg-light-grey transition-colors duration-500 disabled:opacity-50"
       >
-        {isProcessing ? "TRAITEMENT SÉCURISE..." : `CONFIRMER L'ACQUISITION — ${totalAmount} €`}
+        {isProcessing ? "TRAITEMENT SÉCURISE..." : `CONFIRMER L'ACHAT — ${totalAmount} €`}
       </button>
     </form>
   )
 }
 
-// --- CHAMPS INPUT ---
 const InputField = ({ label, name, type = "text", register, error, readOnly }: any) => {
   const [isFocused, setIsFocused] = useState(false);
   const { onBlur: rhfOnBlur, ...rest } = register(name);

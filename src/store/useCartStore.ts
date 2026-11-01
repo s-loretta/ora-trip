@@ -53,7 +53,6 @@ const debouncedServerUpdate = (
   onError: () => void,
   delay = 600
 ) => {
-  // Annule le timer précédent pour cet item s'il existe
   const existing = debounceMap.get(lineItemId);
   if (existing) clearTimeout(existing);
 
@@ -61,17 +60,17 @@ const debouncedServerUpdate = (
     debounceMap.delete(lineItemId);
     try {
       await sdk.store.cart.updateLineItem(cartId, lineItemId, { quantity });
-      // ⚠️ On N'écrase PAS le state ici — l'UI est déjà correcte grâce à l'optimistic update
     } catch (error) {
-      console.error("Erreur serveur lors de la mise à jour de quantité.");
-      onError(); // Rollback uniquement si le serveur répond avec une erreur
+      console.error("Erreur serveur :", error);
+      onError(); // Rollback visuel
+      
+      // ✅ Avertissement utilisateur (remplace par ton composant toast si tu en as un)
+      alert("Désolé, cette quantité dépasse notre stock disponible actuel.");
     }
   }, delay);
 
   debounceMap.set(lineItemId, timer);
 };
-// ────────────────────────────────────────────────────────────────────────────
-
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
@@ -131,31 +130,30 @@ export const useCartStore = create<CartState>()(
     );
 
     set({ items: formatCartItems(cart.items), isLoading: false });
-  } catch (error) {
+} catch (error) {
     if (optimisticData) {
+      // ✅ Rollback : on retire l'article temporaire de l'UI
       set({ items: items.filter((item) => item.id !== tempId) });
     }
     set({ isLoading: false });
+    
+    // ✅ Avertissement utilisateur
+    alert("Impossible d'ajouter l'article : stock insuffisant.");
   }
 },
 
-      // ✅ FIX : Optimistic UI sans race condition + debounce réseau
-      updateQuantity: async (lineItemId: string, quantity: number) => {
+     updateQuantity: async (lineItemId: string, quantity: number) => {
         const { cartId, items } = get();
         if (!cartId) return;
 
-        // Snapshot pour le rollback
         const previousItems = [...items];
 
-        // A. Mise à jour IMMÉDIATE et DÉFINITIVE de l'UI (pas d'écrasement après)
         set({
           items: items.map(item =>
             item.id === lineItemId ? { ...item, quantity } : item
           )
         });
 
-        // B. Envoi au serveur avec debounce (600ms)
-        // Les clics rapides (+, +, +) ne font qu'UN seul appel réseau avec la quantité finale
         debouncedServerUpdate(
           lineItemId,
           quantity,
@@ -164,12 +162,10 @@ export const useCartStore = create<CartState>()(
         );
       },
 
-      // 🗑️ 4. RETIRER DU PANIER
       removeFromCart: async (lineItemId: string) => {
         const { cartId, items } = get();
         if (!cartId) return;
 
-        // Annule tout debounce en cours pour cet item avant de le supprimer
         const existing = debounceMap.get(lineItemId);
         if (existing) {
           clearTimeout(existing);

@@ -30,9 +30,8 @@ export default function PiecePage({ params }: PageProps) {
   const pointerStartX = useRef<number>(0);
   const zoomConstraintsRef = useRef<HTMLDivElement>(null); // ⚡️ Réf pour la zone de glissement du zoom
 
-  const addToCart = useCartStore((state) => state.addToCart);
-  const openCart = useUIStore((state) => state.openCart);
-
+const addToCart = useCartStore((state) => state.addToCart);
+  const cartItems = useCartStore((state) => state.items); // ✅ Ajout : on récupère le contenu du panier
   const resolvedParams = use(params);
   const pieceId = resolvedParams.id;
 
@@ -123,18 +122,36 @@ export default function PiecePage({ params }: PageProps) {
     setIsZoomed(false);
   };
 
+// --- CALCUL DU STOCK VIRTUEL ---
+  // On déduit la quantité déjà présente dans le panier
+  const quantityInCart = selectedFormat 
+    ? cartItems.find((item) => item.variantId === selectedFormat.id || item.id === selectedFormat.id)?.quantity || 0 
+    : 0;
+  
+  const availableStock = selectedFormat ? selectedFormat.stock - quantityInCart : 0;
+
+  // Sécurité : si on change de taille et que l'allocation dépasse le nouveau stock disponible
+  useEffect(() => {
+    if (allocation > availableStock && availableStock > 0) {
+      setAllocation(availableStock);
+    } else if (availableStock === 0) {
+      setAllocation(1); // Reset visuel si on ne peut plus rien ajouter
+    }
+  }, [availableStock, allocation, selectedFormat]);
+
   const decreaseAllocation = () => setAllocation((prev) => Math.max(1, prev - 1));
   const increaseAllocation = () => {
-    if (selectedFormat && allocation < selectedFormat.stock) {
+    if (selectedFormat && allocation < availableStock) { // ✅ On compare avec availableStock
       setAllocation((prev) => prev + 1);
     }
   };
 
+  
+
 const handleAcquisition = async () => {
   if (!piece || !selectedFormat) return;
 
-  openCart();
-
+ 
   const cleanString = piece.value.toString().replace(/[^0-9.,]/g, "").replace(",", ".");
   let finalPrice = parseFloat(cleanString);
 
@@ -306,13 +323,18 @@ const handleAcquisition = async () => {
               <div className="overflow-hidden">
   <motion.div variants={textReveal} className="flex flex-col gap-4">
     
-    <div className="flex justify-between items-center w-full">
+<div className="flex justify-between items-center w-full">
       <span className="font-mono text-[10px] tracking-widest uppercase text-light-grey/60">Quantite</span>
       
-      {/* Affichage conditionnel du stock */}
-      {selectedFormat && selectedFormat.stock <= 5 && selectedFormat.stock > 0 && (
+      {/* Affichage conditionnel du stock virtuel */}
+      {selectedFormat && availableStock <= 5 && availableStock > 0 && (
         <span className="font-mono text-[10px] tracking-widest uppercase text-red-500">
-          Plus que {selectedFormat.stock} exemplaire(s)
+          Plus que {availableStock} exemplaire(s)
+        </span>
+      )}
+      {selectedFormat && availableStock === 0 && (
+        <span className="font-mono text-[10px] tracking-widest uppercase text-red-500">
+          Limite atteinte dans le panier
         </span>
       )}
     </div>
@@ -350,23 +372,23 @@ const handleAcquisition = async () => {
 
             <div className="overflow-hidden">
              <motion.button
-  variants={textReveal}
-  whileHover="hover"
-  onClick={handleAcquisition}
-  disabled={!selectedFormat || selectedFormat.stock === 0}
-  className="w-full relative py-6 flex items-center justify-between group overflow-hidden cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
->
-  <div className="absolute top-0 left-0 w-full h-px bg-light-grey/10" />
-  <div className="absolute bottom-0 left-0 w-full h-px bg-light-grey/10" />
-  <motion.div className="absolute inset-0 bg-white z-0 origin-left" initial={{ scaleX: 0 }} variants={{ hover: { scaleX: 1, transition: luxurySpring } }} />
-  <span className="font-mono text-[10px] tracking-widest uppercase relative z-10 transition-colors duration-500 group-hover:text-dark text-white">
-    {!selectedFormat || selectedFormat.stock === 0 ? "Rupture de stock" : "Ajouter au Panier"}
-  </span>
-  <motion.div className="relative z-10 flex items-center text-white group-hover:text-dark transition-colors duration-500" variants={{ hover: { x: 10, transition: luxurySpring } }}>
-    <span className="w-8 h-px bg-current mr-2" />
-    <span className="border-t border-r border-current p-1 rotate-45 transform" />
-  </motion.div>
-</motion.button>
+                variants={textReveal}
+                whileHover="hover"
+                onClick={handleAcquisition}
+                disabled={!selectedFormat || availableStock === 0}
+                className="w-full relative py-6 flex items-center justify-between group overflow-hidden cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="absolute top-0 left-0 w-full h-px bg-light-grey/10" />
+                <div className="absolute bottom-0 left-0 w-full h-px bg-light-grey/10" />
+                <motion.div className="absolute inset-0 bg-white z-0 origin-left" initial={{ scaleX: 0 }} variants={{ hover: { scaleX: 1, transition: luxurySpring } }} />
+                <span className="font-mono text-[10px] tracking-widest uppercase relative z-10 transition-colors duration-500 group-hover:text-dark text-white">
+                  {!selectedFormat || availableStock === 0 ? "Épuisé / Max Atteint" : "Ajouter au Panier"}
+                </span>
+                <motion.div className="relative z-10 flex items-center text-white group-hover:text-dark transition-colors duration-500" variants={{ hover: { x: 10, transition: luxurySpring } }}>
+                  <span className="w-8 h-px bg-current mr-2" />
+                  <span className="border-t border-r border-current p-1 rotate-45 transform" />
+                </motion.div>
+              </motion.button>
             </div>
 
           </motion.div>

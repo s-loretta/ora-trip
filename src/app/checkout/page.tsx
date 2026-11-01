@@ -171,7 +171,7 @@ export default function CheckoutPage() {
       })
   }, [step, medusaCartId, selectedShippingId])
 
-  const onMethodSubmit = async () => {
+const onMethodSubmit = async () => {
     if (!medusaCartId || !selectedShippingId) return
     setIsProcessingStep(true)
     setStepError(null)
@@ -190,12 +190,32 @@ export default function CheckoutPage() {
       setClientSecret(secret)
       
       if (selectedOption && selectedOption.amount != null) {
-        setServerTotal(subtotal + (selectedOption.amount)); 
+        setServerTotal(subtotal + selectedOption.amount); 
       }
       
       setStep(3)
     } catch (error: any) {
-      setStepError(error.message)
+      // ✅ INTERCEPTION DE L'ERREUR DE STOCK MEDUSA
+      // Medusa renvoie souvent les erreurs dans error.response.data.message via Axios, 
+      // ou error.message via Fetch.
+      const errorMessage = error?.response?.data?.message || error.message || "";
+      const isStockError = errorMessage.toLowerCase().includes("inventory") || 
+                           errorMessage.toLowerCase().includes("stock");
+
+      if (isStockError) {
+        setStepError("Désolé, un article de votre panier vient d'être vendu et n'est plus disponible. Veuillez vérifier votre panier.");
+        
+        // Optionnel : Forcer la mise à jour du panier en arrière-plan pour refléter le vrai stock
+        // useCartStore.getState().initCart();
+      } else {
+        setStepError(errorMessage || "Anomalie réseau. Veuillez réessayer.");
+      }
+      
+      // On réinitialise les promesses pour forcer un nouvel appel si le client réessaie
+      prefetchedSecret.current = null;
+      prefetchPromise.current = null;
+      prefetchedForShippingId.current = null;
+      
     } finally {
       setIsProcessingStep(false)
     }
